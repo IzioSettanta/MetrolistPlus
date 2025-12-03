@@ -331,4 +331,7 @@ fun NavGraphBuilder.navigationBuilder(
     composable("login") {
         LoginScreen(navController)
     }
+    composable(Screens.VoiceSearch.route) {
+        VoiceSearchScreen(navController = navController)
+    }
 }
