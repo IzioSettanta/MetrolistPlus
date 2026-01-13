@@ -63,6 +63,17 @@
     <string name="filter_bookmarked">Bookmarked</string>
     <string name="no_results_found">No results found</string>
 
+    <!-- ✨ Voice Search ✨ -->
+    <string name="voice_search">Voice Search</string>
+    <string name="voice_search_title">Voice Search</string>
+    <string name="voice_search_prompt">Say what you want to search</string>
+    <string name="listening">Listening...</string>
+    <string name="speak_now">Speak now</string>
+    <string name="tap_to_speak">Tap the microphone to speak</string>
+    <string name="start_voice_search">Start Voice Search</string>
+    <string name="recognized_text">You said: %s</string>
+
+
     <!-- Library -->
     <string name="library_song_empty">Library songs will show up here</string>
     <string name="library_artist_empty">Library artists will show up here</string>
