@@ -39,10 +39,9 @@ import com.metrolist.music.viewmodels.LocalSearchViewModel
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.collect
 
-// Ho spostato la sealed class e le sue implementazioni qui, fuori dalla funzione Composable
 sealed class LazySearchItem {
     data class Header(val filter: LocalFilter) : LazySearchItem()
-    data class Content(val item: Any) : LazySearchItem() // Item può essere Song, Album, ecc.
+    data class Content(val item: Any) : LazySearchItem()
     object NoResultPlaceholder : LazySearchItem()
 }
 
@@ -84,7 +83,6 @@ fun LocalSearchScreen(
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.screenWidthDp > configuration.screenHeightDp
 
-    // Prepara la lista "appiattita" di elementi da visualizzare nella LazyColumn
     val lazyListContent: List<LazySearchItem> by remember(result.map, searchFilter, query) {
         derivedStateOf {
             val content = mutableListOf<LazySearchItem>()
@@ -106,14 +104,12 @@ fun LocalSearchScreen(
                 }
             }
 
-            // Aggiungi il segnaposto "nessun risultato" solo se la query non è vuota e non ci sono risultati di contenuto
             if (query.isNotEmpty() && content.filterIsInstance<LazySearchItem.Content>().isEmpty()) {
                 content.add(LazySearchItem.NoResultPlaceholder)
             }
             content
         }
     }
-
 
     Column(
         modifier = Modifier
@@ -157,29 +153,12 @@ fun LocalSearchScreen(
                                 is Album -> "album_${item.id}"
                                 is Artist -> "artist_${item.id}"
                                 is Playlist -> "playlist_${item.id}"
-                                else -> "unknown_${item.hashCode()}" // Fallback, should not happen
+                                else -> "unknown_${item.hashCode()}"
                             }
                         }
                         LazySearchItem.NoResultPlaceholder -> "no_result_placeholder"
                     }
-                },
-                // contentType può essere utile se hai bisogno di differenziare il riutilizzo degli elementi
-                // in base al tipo, ma per ora il default va bene.
-                // contentType = { lazyItem ->
-                //     when (lazyItem) {
-                //         is LazySearchItem.Header -> "header"
-                //         is LazySearchItem.Content -> {
-                //             when (lazyItem.item) {
-                //                 is Song -> "song"
-                //                 is Album -> "album"
-                //                 is Artist -> "artist"
-                //                 is Playlist -> "playlist"
-                //                 else -> "content_item"
-                //             }
-                //         }
-                //         LazySearchItem.NoResultPlaceholder -> "no_result"
-                //     }
-                // }
+                }
             ) { lazyItem ->
                 when (lazyItem) {
                     is LazySearchItem.Header -> {
@@ -213,68 +192,75 @@ fun LocalSearchScreen(
                     }
                     is LazySearchItem.Content -> {
                         when (val item = lazyItem.item) {
-                            is Song -> SongListItem(
-                                song = item,
-                                showInLibraryIcon = true,
-                                isActive = item.id == mediaMetadata?.id,
-                                isPlaying = isPlaying,
-                                trailingContent = {
-                                    IconButton(
-                                        onClick = {
-                                            menuState.show {
-                                                SongMenu(
-                                                    originalSong = item,
-                                                    navController = navController,
-                                                    onDismiss = {
-                                                        onDismiss()
-                                                        menuState.dismiss()
-                                                    },
-                                                    isFromCache = isFromCache
-                                                )
-                                            }
-                                        }
-                                    ) {
-                                        Icon(
-                                            painter = painterResource(R.drawable.more_vert),
-                                            contentDescription = null,
-                                        )
-                                    }
-                                },
-                                modifier = Modifier
-                                    .combinedClickable(
-                                        onClick = {
-                                            if (item.id == mediaMetadata?.id) {
-                                                playerConnection.player.togglePlayPause()
-                                            } else {
-                                                val songs = result.map
-                                                    .getOrDefault(LocalFilter.SONG, emptyList())
-                                                    .filterIsInstance<Song>()
-                                                    .map { it.toMediaItem() }
-                                                playerConnection.playQueue(
-                                                    ListQueue(
-                                                        title = context.getString(R.string.queue_searched_songs),
-                                                        items = songs,
-                                                        startIndex = songs.indexOfFirst { it.mediaId == item.id },
+                            is Song -> {
+                                // --- MODIFICA QUI ---
+                                // Prepariamo la stringa qui, nel contesto Composable corretto
+                                val searchedSongsTitle = stringResource(R.string.queue_searched_songs)
+
+                                SongListItem(
+                                    song = item,
+                                    showInLibraryIcon = true,
+                                    isActive = item.id == mediaMetadata?.id,
+                                    isPlaying = isPlaying,
+                                    trailingContent = {
+                                        IconButton(
+                                            onClick = {
+                                                menuState.show {
+                                                    SongMenu(
+                                                        originalSong = item,
+                                                        navController = navController,
+                                                        onDismiss = {
+                                                            onDismiss()
+                                                            menuState.dismiss()
+                                                        },
+                                                        isFromCache = isFromCache
                                                     )
-                                                )
+                                                }
                                             }
-                                        },
-                                        onLongClick = {
-                                            menuState.show {
-                                                SongMenu(
-                                                    originalSong = item,
-                                                    navController = navController,
-                                                    onDismiss = {
-                                                        onDismiss()
-                                                        menuState.dismiss()
-                                                    },
-                                                    isFromCache = isFromCache
-                                                )
-                                            }
+                                        ) {
+                                            Icon(
+                                                painter = painterResource(R.drawable.more_vert),
+                                                contentDescription = null,
+                                            )
                                         }
-                                    )
-                                // Rimosso .animateItem() per ottimizzazione performance scrolling
-                            )
+                                    },
+                                    modifier = Modifier
+                                        .combinedClickable(
+                                            onClick = {
+                                                if (item.id == mediaMetadata?.id) {
+                                                    playerConnection.player.togglePlayPause()
+                                                } else {
+                                                    val songs = result.map
+                                                        .getOrDefault(LocalFilter.SONG, emptyList())
+                                                        .filterIsInstance<Song>()
+                                                        .map { it.toMediaItem() }
+                                                    playerConnection.playQueue(
+                                                        ListQueue(
+                                                            // Usiamo la stringa già recuperata
+                                                            title = searchedSongsTitle,
+                                                            items = songs,
+                                                            startIndex = songs.indexOfFirst { it.mediaId == item.id },
+                                                        )
+                                                    )
+                                                }
+                                            },
+                                            onLongClick = {
+                                                menuState.show {
+                                                    SongMenu(
+                                                        originalSong = item,
+                                                        navController = navController,
+                                                        onDismiss = {
+                                                            onDismiss()
+                                                            menuState.dismiss()
+                                                        },
+                                                        isFromCache = isFromCache
+                                                    )
+                                                }
+                                            }
+                                        )
+                                )
+                                // --- FINE MODIFICA ---
+                            }
 
                             is Album -> AlbumListItem(
                                 album = item,
@@ -285,7 +271,6 @@ fun LocalSearchScreen(
                                         onDismiss()
                                         navController.navigate("album/${item.id}")
                                     }
-                                // Rimosso .animateItem() per ottimizzazione performance scrolling
                             )
 
                             is Artist -> ArtistListItem(
@@ -295,7 +280,6 @@ fun LocalSearchScreen(
                                         onDismiss()
                                         navController.navigate("artist/${item.id}")
                                     }
-                                // Rimosso .animateItem() per ottimizzazione performance scrolling
                             )
 
                             is Playlist -> PlaylistListItem(
@@ -305,9 +289,7 @@ fun LocalSearchScreen(
                                         onDismiss()
                                         navController.navigate("local_playlist/${item.id}")
                                     }
-                                // Rimosso .animateItem() per ottimizzazione performance scrolling
                             )
-                            else -> { /* Gestisci altri tipi se necessario */ }
                         }
                     }
                     LazySearchItem.NoResultPlaceholder -> {
