@@ -82,7 +82,7 @@ android {
     }
 
     signingConfigs {
-        create("persistentDebug") {
+        /* create("persistentDebug") {
             storeFile = file("persistent-debug.keystore")
             storePassword = "android"
             keyAlias = "androiddebugkey"
@@ -99,7 +99,7 @@ android {
             keyPassword = "android"
             storePassword = "android"
             storeFile = file("${System.getProperty("user.home")}/.android/debug.keystore")
-        }
+        }*/
     }
 
     buildTypes {
@@ -114,13 +114,13 @@ android {
             )
         }
         debug {
-            applicationIdSuffix = ".debug"
+           /* applicationIdSuffix = ".debug"
             isDebuggable = true
             signingConfig = if (System.getenv("GITHUB_EVENT_NAME") == "pull_request") {
                 signingConfigs.getByName("debug")
             } else {
                 signingConfigs.getByName("persistentDebug")
-            }
+            } */
         }
     }
 

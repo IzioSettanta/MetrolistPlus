@@ -7,12 +7,14 @@
 <!-- Translators: Do not modify this file for translations, use InnerTune's Weblate instead. -->
 
 <resources>
+
     <!-- Bottom navigation -->
     <string name="home">Home</string>
     <string name="songs">Songs</string>
     <string name="artists">Artists</string>
     <string name="albums">Albums</string>
     <string name="playlists">Playlists</string>
+    <string name="voice_search">Ricerca vocale</string>
 
     <!-- Top bar -->
     <plurals name="n_selected">

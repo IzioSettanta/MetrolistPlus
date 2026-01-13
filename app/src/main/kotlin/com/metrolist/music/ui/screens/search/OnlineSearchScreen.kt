@@ -111,7 +111,7 @@ fun OnlineSearchScreen(
                 onFillTextField = {
                     onQueryChange(TextFieldValue(history.query, TextRange(history.query.length)))
                 },
-                modifier = Modifier.animateItem(),
+                modifier = Modifier, // Rimosso .animateItem()
                 pureBlack = pureBlack
             )
         }
@@ -127,7 +127,7 @@ fun OnlineSearchScreen(
                 onFillTextField = {
                     onQueryChange(TextFieldValue(query, TextRange(query.length)))
                 },
-                modifier = Modifier.animateItem(),
+                modifier = Modifier, // Rimosso .animateItem()
                 pureBlack = pureBlack
             )
         }
@@ -135,7 +135,7 @@ fun OnlineSearchScreen(
         if (viewState.items.isNotEmpty() && viewState.history.size + viewState.suggestions.size > 0) {
             item(key = "search_divider") {
                 HorizontalDivider(
-                    modifier = Modifier.animateItem()
+                    modifier = Modifier // Rimosso .animateItem()
                 )
             }
             item(key = "search_divider_spacer") {
@@ -266,7 +266,7 @@ fun OnlineSearchScreen(
                         }
                     )
                     .background(if (pureBlack) Color.Black else MaterialTheme.colorScheme.surface)
-                    .animateItem()
+                // Rimosso .animateItem()
             )
         }
     }

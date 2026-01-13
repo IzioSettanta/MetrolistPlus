@@ -10,6 +10,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" /> <!-- AGGIUNTO PER LA RICERCA VOCALE -->
 
     <!-- Android TV -->
     <uses-feature android:name="android.software.leanback" android:required="false" />
@@ -19,7 +20,12 @@
         <intent>
             <action android:name="android.media.action.DISPLAY_AUDIO_EFFECT_CONTROL_PANEL" />
         </intent>
+        <!-- AGGIUNTO PER IL RICONOSCIMENTO VOCALE -->
+        <intent>
+            <action android:name="android.speech.action.RECOGNIZE_SPEECH" />
+        </intent>
     </queries>
+
     <application
         android:name=".App"
         android:allowBackup="true"
@@ -33,7 +39,8 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="false"
         android:theme="@style/Theme.Metrolist"
-        tools:targetApi="tiramisu">
+        android:hardwareAccelerated="true"
+        tools:targetApi="tiramisu"> <!-- CORREZIONE: chiusura del tag application e posizione di tools:targetApi -->
         <uses-library
             android:name="org.apache.http.legacy"
             android:required="false" />
@@ -196,7 +203,7 @@
             <intent-filter>
                 <action android:name="android.intent.action.MEDIA_BUTTON" />
             </intent-filter>
-        </receiver>        
+        </receiver>
 
         <meta-data
             android:name="com.google.android.gms.car.application"

@@ -38,7 +38,20 @@ sealed class Screens(
         route = "library"
     )
 
+    // Aggiungi qui l'oggetto VoiceSearch
+    object VoiceSearch : Screens(
+        titleId = R.string.voice_search, // Assicurati di aver definito questa stringa in strings.xml
+        iconIdInactive = R.drawable.ic_mic, // Assicurati di aver aggiunto questa drawable
+        iconIdActive = R.drawable.ic_mic,   // Assicurati di aver aggiunto questa drawable
+        route = "voice_search"
+    )
+
     companion object {
-        val MainScreens = listOf(Home, Search, Library)
+        // Modificato: VoiceSearch ora fa parte di MainScreens, posizionata dove desideri che appaia.
+        // Ad esempio, se vuoi che sia l'ultima icona della navigazione principale:
+        val MainScreens = listOf(Home, VoiceSearch, Search, Library )
+        // Se vuoi che sia la prima dopo Home e prima di Search:
+        // val MainScreens = listOf(Home, VoiceSearch, Search, Library)
+        // Per il tuo caso "insieme agli altri pulsanti in basso", la metterei in fondo come ultima.
     }
 }
