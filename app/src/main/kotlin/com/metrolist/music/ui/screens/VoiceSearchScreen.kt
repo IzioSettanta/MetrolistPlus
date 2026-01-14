@@ -1,149 +1,158 @@
-package com.metrolist.music.ui.screens
+package com.metrolist.music.ui.screens.search
 
 import android.Manifest
 import android.content.Intent
+import android.os.Bundle
+import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.navigation.NavController
+import androidx.navigation.NavHostController
 import com.metrolist.music.R
-import com.metrolist.music.LocalPlayerConnection
-import com.metrolist.music.LocalDatabase
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.ui.text.style.TextAlign
-import kotlinx.coroutines.launch
+import com.metrolist.music.ui.screens.Screens
 import java.net.URLEncoder
+import java.util.Locale
 
 @Composable
-fun VoiceSearchScreen(
-    navController: NavController
-) {
+fun VoiceSearchScreen(navController: NavHostController) {
     val context = LocalContext.current
-    var recognizedText by remember { mutableStateOf("") }
     var isListening by remember { mutableStateOf(false) }
-    var hasPermission by remember { mutableStateOf(false) }
+    var voiceValue by remember { mutableStateOf(0f) }
+    var statusText by remember { mutableStateOf("In ascolto...") }
 
-    // Launcher per i permessi
+    // Inizializziamo lo SpeechRecognizer
+    val speechRecognizer = remember { SpeechRecognizer.createSpeechRecognizer(context) }
+
+    // Gestione Permessi (Necessaria per il riconoscimento "silenzioso")
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
-        hasPermission = isGranted
+        if (!isGranted) navController.popBackStack()
     }
 
-    // Launcher per la ricerca vocale
-    val speechRecognizerLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        isListening = false
-        val spokenText = result.data
-            ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
-            ?.firstOrNull()
+    // Animazione Pulsante
+    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+    val scale by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = if (isListening) 1.2f else 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(800, easing = LinearOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ), label = "scale"
+    )
 
-        if (!spokenText.isNullOrEmpty()) {
-            recognizedText = spokenText
-            // Naviga alla ricerca con il testo riconosciuto
-            navController.navigate("search/${URLEncoder.encode(spokenText, "UTF-8")}")
-        }
-    }
+    DisposableEffect(Unit) {
+        // Chiediamo il permesso del microfono
+        permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
 
-    // Funzione per avviare la ricerca vocale
-    fun startVoiceRecognition() {
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_PROMPT, context.getString(R.string.voice_search_prompt))
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+            // Questo flag suggerisce al sistema di non mostrare dialoghi extra
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
         }
-        isListening = true
-        speechRecognizerLauncher.launch(intent)
+
+        val listener = object : RecognitionListener {
+            override fun onReadyForSpeech(params: Bundle?) {
+                isListening = true
+                statusText = "Parla ora..."
+            }
+            override fun onBeginningOfSpeech() {}
+            override fun onRmsChanged(rmsdB: Float) { voiceValue = rmsdB }
+            override fun onBufferReceived(buffer: ByteArray?) {}
+            override fun onEndOfSpeech() { isListening = false }
+            override fun onError(error: Int) {
+                // Se c'è un errore (es. nessun suono), torniamo indietro
+                navController.popBackStack()
+            }
+            override fun onResults(results: Bundle?) {
+                val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                val text = matches?.get(0) ?: ""
+                if (text.isNotEmpty()) {
+                    val encoded = URLEncoder.encode(text, "UTF-8")
+                    navController.navigate("search/$encoded") {
+                        popUpTo(Screens.VoiceSearch.route) { inclusive = true }
+                    }
+                }
+            }
+            override fun onPartialResults(partialResults: Bundle?) {
+                val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                if (!matches.isNullOrEmpty()) {
+                    statusText = matches[0] // Mostra quello che l'utente sta dicendo in tempo reale
+                }
+            }
+            override fun onEvent(eventType: Int, params: Bundle?) {}
+        }
+
+        speechRecognizer.setRecognitionListener(listener)
+        // AVVIAMO IL RICONOSCIMENTO (Senza lanciare un'attività esterna)
+        speechRecognizer.startListening(intent)
+
+        onDispose {
+            speechRecognizer.stopListening()
+            speechRecognizer.cancel()
+            speechRecognizer.destroy()
+        }
     }
 
-    LaunchedEffect(Unit) {
-        permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-    }
-
-    Column(
+    // INTERFACCIA PERSONALIZZATA (Stile Metrolist)
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+            .background(MaterialTheme.colorScheme.surface),
+        contentAlignment = Alignment.Center
     ) {
-        Icon(
-            painter = painterResource(R.drawable.mic),
-            contentDescription = null,
-            modifier = Modifier.size(120.dp),
-            tint = if (isListening) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        Spacer(modifier = Modifier.height(32.dp))
-
-        Text(
-            text = if (isListening)
-                stringResource(R.string.listening)
-            else
-                stringResource(R.string.voice_search_title),
-            style = MaterialTheme.typography.headlineMedium,
-            textAlign = TextAlign.Center
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text(
-            text = if (isListening)
-                stringResource(R.string.speak_now)
-            else
-                stringResource(R.string.tap_to_speak),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
-        )
-
-        Spacer(modifier = Modifier.height(48.dp))
-
-        Button(
-            onClick = {
-                if (hasPermission) {
-                    startVoiceRecognition()
-                } else {
-                    permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                }
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp),
-            enabled = !isListening
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
-            Icon(
-                painter = painterResource(R.drawable.mic),
-                contentDescription = null,
-                modifier = Modifier.size(24.dp)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = if (isListening)
-                    stringResource(R.string.listening)
-                else
-                    stringResource(R.string.start_voice_search)
+                text = statusText,
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(horizontal = 24.dp)
             )
-        }
 
-        if (recognizedText.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(24.dp))
-            Text(
-                text = stringResource(R.string.recognized_text, recognizedText),
-                style = MaterialTheme.typography.bodyMedium,
-                textAlign = TextAlign.Center
-            )
+            Spacer(modifier = Modifier.height(80.dp))
+
+            // Cerchio animato che reagisce al volume
+            Box(
+                modifier = Modifier
+                    .size(140.dp)
+                    .scale(scale + (voiceValue / 20f).coerceIn(0f, 0.4f))
+                    .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_mic),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(56.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(100.dp))
+
+            OutlinedButton(
+                onClick = { navController.popBackStack() },
+                shape = CircleShape
+            ) {
+                Text("Annulla")
+            }
         }
     }
 }
