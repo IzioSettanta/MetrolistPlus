@@ -49,6 +49,9 @@ val EnableBetterLyricsKey = booleanPreferencesKey("enableBetterLyrics")
 val EnableSimpMusicKey = booleanPreferencesKey("enableSimpMusic")
 val HideExplicitKey = booleanPreferencesKey("hideExplicit")
 val HideVideoSongsKey = booleanPreferencesKey("hideVideoSongs")
+val ShowArtistDescriptionKey = booleanPreferencesKey("showArtistDescription")
+val ShowArtistSubscriberCountKey = booleanPreferencesKey("showArtistSubscriberCount")
+val ShowMonthlyListenersKey = booleanPreferencesKey("showMonthlyListeners")
 val ProxyEnabledKey = booleanPreferencesKey("proxyEnabled")
 val ProxyUrlKey = stringPreferencesKey("proxyUrl")
 val ProxyTypeKey = stringPreferencesKey("proxyType")
@@ -71,6 +74,7 @@ val PersistentQueueKey = booleanPreferencesKey("persistentQueue")
 val RememberShuffleAndRepeatKey = booleanPreferencesKey("rememberShuffleAndRepeat")
 val ShuffleModeKey = booleanPreferencesKey("shuffleMode")
 val SkipSilenceKey = booleanPreferencesKey("skipSilence")
+val SkipSilenceInstantKey = booleanPreferencesKey("skipSilenceInstant")
 val AudioNormalizationKey = booleanPreferencesKey("audioNormalization")
 val AutoLoadMoreKey = booleanPreferencesKey("autoLoadMore")
 val DisableLoadMoreWhenRepeatAllKey = booleanPreferencesKey("disableLoadMoreWhenRepeatAll")
@@ -179,10 +183,12 @@ enum class SongFilter {
 }
 
 enum class ArtistFilter {
+    LIBRARY,
     LIKED
 }
 
 enum class AlbumFilter {
+    LIBRARY,
     LIKED,
     UPLOADED
 }
