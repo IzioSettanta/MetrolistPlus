@@ -228,6 +228,8 @@ dependencies {
     implementation(libs.media3.session)
     implementation(libs.media3.okhttp)
 
+    implementation("androidx.webkit:webkit:1.8.0")
+
     // Google Cast - only included in GMS flavor (not available in F-Droid/FOSS builds)
     "gmsImplementation"(libs.media3.cast)
     "gmsImplementation"(libs.mediarouter)
