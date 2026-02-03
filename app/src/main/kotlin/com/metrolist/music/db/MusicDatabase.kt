@@ -67,17 +67,6 @@ class MusicDatabase(
             }
         }
 
-    suspend fun withTransaction(block: suspend MusicDatabase.() -> Unit) =
-        with(delegate) {
-            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                runInTransaction {
-                    kotlinx.coroutines.runBlocking {
-                        block(this@MusicDatabase)
-                    }
-                }
-            }
-        }
-
     fun close() = delegate.close()
 }
 
@@ -104,7 +93,7 @@ class MusicDatabase(
         SortedSongAlbumMap::class,
         PlaylistSongMapPreview::class,
     ],
-    version = 29,
+    version = 28,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 2, to = 3),
@@ -133,7 +122,6 @@ class MusicDatabase(
         AutoMigration(from = 25, to = 26),
         AutoMigration(from = 26, to = 27),
         AutoMigration(from = 27, to = 28),
-        AutoMigration(from = 28, to = 29),
     ],
 )
 @TypeConverters(Converters::class)

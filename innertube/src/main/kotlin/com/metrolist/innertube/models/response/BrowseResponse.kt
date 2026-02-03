@@ -51,19 +51,19 @@ data class BrowseResponse(
     ) {
         @Serializable
         data class SectionListContinuation(
-            val contents: List<SectionListRenderer.Content> = emptyList(),
+            val contents: List<SectionListRenderer.Content>,
             val continuations: List<Continuation>?,
         )
 
         @Serializable
         data class MusicPlaylistShelfContinuation(
-            val contents: List<MusicShelfRenderer.Content> = emptyList(),
+            val contents: List<MusicShelfRenderer.Content>,
             val continuations: List<Continuation>?,
         )
 
         @Serializable
         data class GridContinuation(
-            val items: List<GridRenderer.Item> = emptyList(),
+            val items: List<GridRenderer.Item>,
             val continuations: List<Continuation>?,
         )
     }

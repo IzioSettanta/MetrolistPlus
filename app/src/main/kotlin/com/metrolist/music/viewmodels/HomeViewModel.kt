@@ -34,6 +34,7 @@ import com.metrolist.music.utils.dataStore
 import com.metrolist.music.utils.get
 import com.metrolist.music.utils.reportException
 import com.metrolist.music.utils.SyncUtils
+import com.metrolist.music.utils.syncCoroutine
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import com.metrolist.music.constants.ShowWrappedCardKey
@@ -334,7 +335,7 @@ class HomeViewModel @Inject constructor(
             isRefreshing.value = false
         }
         // Run sync when user manually refreshes
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch(syncCoroutine) {
             syncUtils.tryAutoSync()
         }
     }
@@ -351,7 +352,7 @@ class HomeViewModel @Inject constructor(
         }
         
         // Run sync in separate coroutine with cooldown to avoid blocking UI
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch(syncCoroutine) {
             syncUtils.tryAutoSync()
         }
 

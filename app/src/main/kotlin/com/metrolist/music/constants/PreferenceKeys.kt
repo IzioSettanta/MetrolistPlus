@@ -58,7 +58,6 @@ val ProxyTypeKey = stringPreferencesKey("proxyType")
 val ProxyUsernameKey = stringPreferencesKey("proxyUsername")
 val ProxyPasswordKey = stringPreferencesKey("proxyPassword")
 val YtmSyncKey = booleanPreferencesKey("ytmSync")
-val SelectedYtmPlaylistsKey = stringPreferencesKey("selectedYtmPlaylists")
 val CheckForUpdatesKey = booleanPreferencesKey("checkForUpdates")
 val UpdateNotificationsEnabledKey = booleanPreferencesKey("updateNotifications")
 
@@ -72,7 +71,6 @@ enum class AudioQuality {
 val AudioOffload = booleanPreferencesKey("enableOffload")
 
 val PersistentQueueKey = booleanPreferencesKey("persistentQueue")
-val PersistentShuffleAcrossQueuesKey = booleanPreferencesKey("persistentShuffleAcrossQueues")
 val RememberShuffleAndRepeatKey = booleanPreferencesKey("rememberShuffleAndRepeat")
 val ShuffleModeKey = booleanPreferencesKey("shuffleMode")
 val SkipSilenceKey = booleanPreferencesKey("skipSilence")

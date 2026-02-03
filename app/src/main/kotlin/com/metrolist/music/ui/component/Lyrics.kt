@@ -9,7 +9,6 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Intent
 import android.content.res.Configuration
-import android.text.Layout
 import android.os.Build
 import android.view.WindowManager
 import android.widget.Toast
@@ -1479,16 +1478,10 @@ fun Lyrics(
         val headerFooterEstimate = (48.dp + 14.dp + 16.dp + 20.dp + 8.dp + 28.dp * 2)
         val previewAvailableHeight = previewBoxHeight - headerFooterEstimate
 
-        val lyricsTextAlign = when (lyricsTextPosition) {
-            LyricsPosition.LEFT -> TextAlign.Left
-            LyricsPosition.CENTER -> TextAlign.Center
-            LyricsPosition.RIGHT -> TextAlign.Right
-        }
-
         val textStyleForMeasurement = TextStyle(
             color = previewTextColor,
             fontWeight = FontWeight.Bold,
-            textAlign = lyricsTextAlign
+            textAlign = TextAlign.Center
         )
         val textMeasurer = rememberTextMeasurer()
 
@@ -1561,8 +1554,7 @@ fun Lyrics(
                             mediaMetadata = mediaMetadata ?: return@Box,
                             backgroundColor = previewBackgroundColor,
                             textColor = previewTextColor,
-                                secondaryTextColor = previewSecondaryTextColor,
-                                textAlign = lyricsTextAlign
+                            secondaryTextColor = previewSecondaryTextColor
                         )
                     }
 
@@ -1641,11 +1633,6 @@ fun Lyrics(
                                         backgroundColor = previewBackgroundColor.toArgb(),
                                         textColor = previewTextColor.toArgb(),
                                         secondaryTextColor = previewSecondaryTextColor.toArgb(),
-                                        lyricsAlignment = when (lyricsTextPosition) {
-                                            LyricsPosition.LEFT -> Layout.Alignment.ALIGN_NORMAL
-                                            LyricsPosition.CENTER -> Layout.Alignment.ALIGN_CENTER
-                                            LyricsPosition.RIGHT -> Layout.Alignment.ALIGN_OPPOSITE
-                                        }
                                     )
                                     val timestamp = System.currentTimeMillis()
                                     val filename = "lyrics_$timestamp"

@@ -44,8 +44,7 @@ object ComposeToImage {
         height: Int,
         backgroundColor: Int? = null,
         textColor: Int? = null,
-        secondaryTextColor: Int? = null,
-        lyricsAlignment: Layout.Alignment = Layout.Alignment.ALIGN_CENTER
+        secondaryTextColor: Int? = null
     ): Bitmap = withContext(Dispatchers.Default) {
         val cardSize = minOf(width, height) - 32
         val bitmap = createBitmap(cardSize, cardSize)
@@ -150,7 +149,7 @@ object ComposeToImage {
             lyricsLayout = StaticLayout.Builder.obtain(
                 lyrics, 0, lyrics.length, lyricsPaint, lyricsMaxWidth
             )
-                .setAlignment(lyricsAlignment)
+                .setAlignment(Layout.Alignment.ALIGN_CENTER)
                 .setIncludePad(false)
                 .setLineSpacing(10f, 1.3f)
                 .setMaxLines(10)

@@ -23,8 +23,8 @@ android {
         applicationId = "com.metrolist.music"
         minSdk = 26
         targetSdk = 36
-        versionCode = 135
-        versionName = "12.12.0"
+        versionCode = 133
+        versionName = "12.10.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
@@ -172,8 +172,6 @@ android {
             excludes += "META-INF/NOTICE.md"
             excludes += "META-INF/CONTRIBUTORS.md"
             excludes += "META-INF/LICENSE.md"
-            excludes += "META-INF/INDEX.LIST"
-            excludes += "META-INF/io.netty.versions.properties"
         }
     }
 }
@@ -192,9 +190,6 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach 
 }
 
 dependencies {
-
-    implementation(libs.webkit)
-
     implementation(libs.guava)
     implementation(libs.coroutines.guava)
     implementation(libs.concurrent.futures)

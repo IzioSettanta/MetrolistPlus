@@ -243,17 +243,6 @@ fun AboutScreen(
             }
         )
 
-        Spacer(Modifier.height(8.dp))
-
-        Text(
-            text = "Nyx",
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.secondary,
-            modifier = Modifier.clickable {
-                uriHandler.openUri("https://github.com/nyxiereal")
-            }
-        )
-
         Spacer(Modifier.height(32.dp))
     }
 

@@ -4,11 +4,9 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.content.ComponentName
-import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.content.pm.PackageManager
-import android.media.AudioManager
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
@@ -18,6 +16,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -26,6 +25,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -34,15 +34,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastAny
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -53,19 +57,25 @@ import androidx.core.view.WindowCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.coroutineScope
 import androidx.lifecycle.lifecycleScope
+import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import coil3.compose.AsyncImage
 import coil3.imageLoader
+import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import coil3.request.allowHardware
+import coil3.request.crossfade
 import coil3.toBitmap
 import com.metrolist.innertube.YouTube
+import com.metrolist.innertube.models.SongItem
 import com.metrolist.innertube.models.WatchEndpoint
 import com.metrolist.music.constants.*
 import com.metrolist.music.db.MusicDatabase
+import com.metrolist.music.db.entities.SearchHistory
 import com.metrolist.music.extensions.toEnum
 import com.metrolist.music.models.toMediaMetadata
 import com.metrolist.music.playback.DownloadUtil
@@ -75,6 +85,7 @@ import com.metrolist.music.playback.PlayerConnection
 import com.metrolist.music.playback.queues.YouTubeQueue
 import com.metrolist.music.ui.component.*
 import com.metrolist.music.ui.component.shimmer.ShimmerTheme
+import com.metrolist.music.ui.menu.YouTubeSongMenu
 import com.metrolist.music.ui.player.BottomSheetPlayer
 import com.metrolist.music.ui.screens.Screens
 import com.metrolist.music.ui.screens.navigationBuilder
@@ -131,30 +142,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /**
-     * Gestisce l'audio ducking abbassando il volume del player.
-     * @param enabled Se true, abbassa il volume al 20%, se false lo riporta al 100%.
-     */
-    private fun setVolumeDucking(enabled: Boolean) {
-        playerConnection?.service?.player?.let { player ->
-            player.volume = if (enabled) 0.2f else 1.0f
-        }
-    }
-
-    /**
-     * Esempio di funzione da chiamare quando si avvia la ricerca vocale.
-     */
-    fun onVoiceSearchStarted() {
-        setVolumeDucking(true)
-    }
-
-    /**
-     * Esempio di funzione da chiamare quando la ricerca vocale termina o riceve un risultato.
-     */
-    fun onVoiceSearchFinished() {
-        setVolumeDucking(false)
-    }
-
     override fun onStart() {
         super.onStart()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -188,6 +175,7 @@ class MainActivity : ComponentActivity() {
     }
 
     @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
+    @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.decorView.layoutDirection = View.LAYOUT_DIRECTION_LTR
@@ -302,14 +290,16 @@ class MainActivity : ComponentActivity() {
             BoxWithConstraints(modifier = Modifier.fillMaxSize().background(if (pureBlack) Color.Black else MaterialTheme.colorScheme.surface)) {
                 val density = LocalDensity.current
                 val configuration = LocalConfiguration.current
+                val cutoutInsets = WindowInsets.displayCutout
                 val windowsInsets = WindowInsets.systemBars
                 val bottomInset = with(density) { windowsInsets.getBottom(density).toDp() }
+                val bottomInsetDp = WindowInsets.systemBars.asPaddingValues().calculateBottomPadding()
 
                 val navController = rememberNavController()
                 val homeViewModel: HomeViewModel = hiltViewModel()
                 val accountImageUrl by homeViewModel.accountImageUrl.collectAsState()
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
-                val (_, setPreviousTab) = rememberSaveable { mutableStateOf("home") }
+                val (previousTab, setPreviousTab) = rememberSaveable { mutableStateOf("home") }
 
                 val navigationItems = remember { Screens.MainScreens }
                 val (slimNav) = rememberPreference(SlimNavBarKey, defaultValue = false)
@@ -318,7 +308,7 @@ class MainActivity : ComponentActivity() {
                 val tabOpenedFromShortcut = remember { when (intent?.action) { ACTION_SEARCH -> NavigationTab.LIBRARY; ACTION_LIBRARY -> NavigationTab.SEARCH; else -> null } }
 
                 val topLevelScreens = remember { listOf(Screens.Home.route, Screens.Library.route, "settings") }
-                val (_, onQueryChange) = rememberSaveable(stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue()) }
+                val (query, onQueryChange) = rememberSaveable(stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue()) }
 
                 val currentRoute by remember { derivedStateOf { navBackStackEntry?.destination?.route } }
                 val inSearchScreen by remember { derivedStateOf { currentRoute?.startsWith("search/") == true } }
@@ -329,24 +319,17 @@ class MainActivity : ComponentActivity() {
                 val showRail = isLandscape && !inSearchScreen
                 val navPadding = if (shouldShowNavigationBar && !showRail) { if (slimNav) SlimNavBarHeight else NavigationBarHeight } else 0.dp
 
-                val navigationBarHeight by animateDpAsState(targetValue = if (shouldShowNavigationBar && !showRail) NavigationBarHeight else 0.dp, label = "navBarHeight")
+                val navigationBarHeight by animateDpAsState(targetValue = if (shouldShowNavigationBar && !showRail) NavigationBarHeight else 0.dp, animationSpec = NavigationBarAnimationSpec, label = "navBarHeight")
 
                 val playerBottomSheetState = rememberBottomSheetState(
                     dismissedBound = 0.dp,
-                    collapsedBound = MiniPlayerHeight + bottomInset + (if (!showRail && shouldShowNavigationBar) navPadding else 0.dp) + (if (useNewMiniPlayerDesign) MiniPlayerBottomSpacing else 0.dp),
+                    collapsedBound = bottomInset + (if (!showRail && shouldShowNavigationBar) navPadding else 0.dp) + (if (useNewMiniPlayerDesign) MiniPlayerBottomSpacing else 0.dp) + MiniPlayerHeight,
                     expandedBound = maxHeight,
                 )
 
-                val currentSong by playerConnection?.service?.currentMediaMetadata?.collectAsState(null) ?: remember { mutableStateOf(null) }
-                LaunchedEffect(currentSong) {
-                    if (currentSong != null && playerBottomSheetState.isDismissed) {
-                        playerBottomSheetState.collapseSoft()
-                    }
-                }
-
                 val playerAwareWindowInsets = remember(bottomInset, shouldShowNavigationBar, playerBottomSheetState.isDismissed, showRail) {
                     var bottom = bottomInset
-                    if (shouldShowNavigationBar && !showRail) bottom += navPadding
+                    if (shouldShowNavigationBar && !showRail) bottom += NavigationBarHeight
                     if (!playerBottomSheetState.isDismissed) bottom += MiniPlayerHeight
                     windowsInsets.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Top).add(WindowInsets(top = AppBarHeight, bottom = bottom))
                 }
@@ -367,9 +350,16 @@ class MainActivity : ComponentActivity() {
                     currentRoute?.let { setPreviousTab(it) }
                 }
 
+                LaunchedEffect(playerConnection) {
+                    val p = playerConnection?.player ?: return@LaunchedEffect
+                    if (p.currentMediaItem == null) playerBottomSheetState.dismiss()
+                    else if (playerBottomSheetState.isDismissed) playerBottomSheetState.collapseSoft()
+                }
+
                 var shouldShowTopBar by rememberSaveable { mutableStateOf(false) }
                 LaunchedEffect(navBackStackEntry) { shouldShowTopBar = currentRoute in topLevelScreens && currentRoute != "settings" }
 
+                val coroutineScope = rememberCoroutineScope()
                 val snackbarHostState = remember { SnackbarHostState() }
 
                 LaunchedEffect(Unit) {
@@ -427,27 +417,24 @@ class MainActivity : ComponentActivity() {
                             }
                         },
                         bottomBar = {
-                            if (currentRoute != "wrapped") {
+                            if (!showRail && currentRoute != "wrapped") {
                                 Box {
                                     BottomSheetPlayer(state = playerBottomSheetState, navController = navController, pureBlack = pureBlack)
-
-                                    if (!showRail) {
-                                        AppNavigationBar(
-                                            navigationItems = navigationItems,
-                                            currentRoute = currentRoute,
-                                            onItemClick = { screen, isSelected ->
-                                                if (playerBottomSheetState.isExpanded) playerBottomSheetState.collapseSoft()
-                                                if (isSelected) navController.currentBackStackEntry?.savedStateHandle?.set("scrollToTop", true)
-                                                else navController.navigate(screen.route) { popUpTo(navController.graph.startDestinationId) { saveState = true }; launchSingleTop = true; restoreState = true }
-                                            },
-                                            pureBlack = pureBlack,
-                                            slimNav = slimNav,
-                                            modifier = Modifier.align(Alignment.BottomCenter).height(bottomInset + navPadding).graphicsLayer {
-                                                val totalPx = (bottomInset + navPadding).toPx()
-                                                translationY = totalPx * playerBottomSheetState.progress
-                                            }
-                                        )
-                                    }
+                                    AppNavigationBar(
+                                        navigationItems = navigationItems,
+                                        currentRoute = currentRoute,
+                                        onItemClick = { screen, isSelected ->
+                                            if (playerBottomSheetState.isExpanded) playerBottomSheetState.collapseSoft()
+                                            if (isSelected) navController.currentBackStackEntry?.savedStateHandle?.set("scrollToTop", true)
+                                            else navController.navigate(screen.route) { popUpTo(navController.graph.startDestinationId) { saveState = true }; launchSingleTop = true; restoreState = true }
+                                        },
+                                        pureBlack = pureBlack,
+                                        slimNav = slimNav,
+                                        modifier = Modifier.align(Alignment.BottomCenter).height(bottomInset + navPadding).graphicsLayer {
+                                            val totalPx = (bottomInset + NavigationBarHeight).toPx()
+                                            translationY = if (navigationBarHeight.toPx() == 0f) totalPx else totalPx * playerBottomSheetState.progress
+                                        }
+                                    )
                                 }
                             }
                         },

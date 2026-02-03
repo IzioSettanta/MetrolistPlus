@@ -124,8 +124,7 @@ fun LyricsImageCard(
     darkBackground: Boolean = true,
     backgroundColor: Color? = null,
     textColor: Color? = null,
-    secondaryTextColor: Color? = null,
-    textAlign: TextAlign = TextAlign.Center
+    secondaryTextColor: Color? = null
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
@@ -215,18 +214,14 @@ fun LyricsImageCard(
                         .weight(1f)
                         .fillMaxWidth()
                         .padding(vertical = 6.dp),
-                    contentAlignment = when (textAlign) {
-                        TextAlign.Left, TextAlign.Start -> Alignment.CenterStart
-                        TextAlign.Right, TextAlign.End -> Alignment.CenterEnd
-                        else -> Alignment.Center
-                    }
+                    contentAlignment = Alignment.Center
                 ) {
                     val availableWidth = maxWidth
                     val availableHeight = maxHeight
                     val textStyle = TextStyle(
                         color = mainTextColor,
                         fontWeight = FontWeight.Bold,
-                        textAlign = textAlign,
+                        textAlign = TextAlign.Center,
                         letterSpacing = 0.005.em,
                     )
 
@@ -257,7 +252,7 @@ fun LyricsImageCard(
                             lineHeight = dynamicFontSize.value.sp * 1.2f
                         ),
                         overflow = TextOverflow.Ellipsis,
-                        textAlign = textAlign,
+                        textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth()
                     )
                 }

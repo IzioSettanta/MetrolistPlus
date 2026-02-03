@@ -51,10 +51,7 @@ object PlayerSliderColors {
             activeTrackColor = activeColor,
             activeTickColor = activeColor,
             thumbColor = activeColor,
-            inactiveTrackColor = inactiveTrackColor,
-            disabledActiveTrackColor = activeColor,
-            disabledInactiveTrackColor = inactiveTrackColor,
-            disabledThumbColor = activeColor
+            inactiveTrackColor = inactiveTrackColor
         )
     }
 }

@@ -241,8 +241,9 @@ constructor(
                 database.playlists(sortType, descending)
             }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
-    fun sync() {
-        viewModelScope.launch(Dispatchers.IO) { syncUtils.syncSavedPlaylists() }
+    // Suspend function that waits for sync to complete
+    suspend fun sync() {
+        syncUtils.syncSavedPlaylists()
     }
 
     val topValue =
@@ -289,10 +290,13 @@ constructor(
     database: MusicDatabase,
     private val syncUtils: SyncUtils,
 ) : ViewModel() {
-    val syncAllLibrary = {
-         viewModelScope.launch(Dispatchers.IO) {
-             syncUtils.tryAutoSync()
-         }
+    // Suspend function that waits for all syncs to complete
+    suspend fun syncAllLibrary() {
+        syncUtils.syncLikedSongs()
+        syncUtils.syncLibrarySongs()
+        syncUtils.syncArtistsSubscriptions()
+        syncUtils.syncLikedAlbums()
+        syncUtils.syncSavedPlaylists()
     }
     val topValue =
         context.dataStore.data

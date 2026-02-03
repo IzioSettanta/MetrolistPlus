@@ -45,7 +45,6 @@ import com.metrolist.music.constants.AutoLoadMoreKey
 import com.metrolist.music.constants.DisableLoadMoreWhenRepeatAllKey
 import com.metrolist.music.constants.AutoSkipNextOnErrorKey
 import com.metrolist.music.constants.EnableGoogleCastKey
-import com.metrolist.music.constants.PersistentShuffleAcrossQueuesKey
 import com.metrolist.music.constants.RememberShuffleAndRepeatKey
 import com.metrolist.music.constants.ShufflePlaylistFirstKey
 import com.metrolist.music.constants.PersistentQueueKey
@@ -125,10 +124,6 @@ fun PlayerSettings(
     )
     val (autoSkipNextOnError, onAutoSkipNextOnErrorChange) = rememberPreference(
         AutoSkipNextOnErrorKey,
-        defaultValue = false
-    )
-    val (persistentShuffleAcrossQueues, onPersistentShuffleAcrossQueuesChange) = rememberPreference(
-        PersistentShuffleAcrossQueuesKey,
         defaultValue = false
     )
     val (rememberShuffleAndRepeat, onRememberShuffleAndRepeatChange) = rememberPreference(
@@ -466,27 +461,6 @@ fun PlayerSettings(
                         )
                     },
                     onClick = { similarContentEnabledChange(!similarContentEnabled) }
-                ),
-                Material3SettingsItem(
-                    icon = painterResource(R.drawable.shuffle),
-                    title = { Text(stringResource(R.string.persistent_shuffle_title)) },
-                    description = { Text(stringResource(R.string.persistent_shuffle_desc)) },
-                    trailingContent = {
-                        Switch(
-                            checked = persistentShuffleAcrossQueues,
-                            onCheckedChange = onPersistentShuffleAcrossQueuesChange,
-                            thumbContent = {
-                                Icon(
-                                    painter = painterResource(
-                                        id = if (persistentShuffleAcrossQueues) R.drawable.check else R.drawable.close
-                                    ),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(SwitchDefaults.IconSize)
-                                )
-                            }
-                        )
-                    },
-                    onClick = { onPersistentShuffleAcrossQueuesChange(!persistentShuffleAcrossQueues) }
                 ),
                 Material3SettingsItem(
                     icon = painterResource(R.drawable.shuffle),
