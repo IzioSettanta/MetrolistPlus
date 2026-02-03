@@ -179,12 +179,13 @@ object YouTube {
 
     suspend fun searchContinuation(continuation: String): Result<SearchResult> = runCatching {
         val response = innerTube.search(WEB_REMIX, continuation = continuation).body<SearchResponse>()
+        val items = response.continuationContents?.musicShelfContinuation?.contents
+            ?.mapNotNull {
+                SearchPage.toYTItem(it.musicResponsiveListItemRenderer)
+            } ?: emptyList()
         SearchResult(
-            items = response.continuationContents?.musicShelfContinuation?.contents
-                ?.mapNotNull {
-                    SearchPage.toYTItem(it.musicResponsiveListItemRenderer)
-                }!!,
-            continuation = response.continuationContents.musicShelfContinuation.continuations?.getContinuation()
+            items = items,
+            continuation = if (items.isEmpty()) null else response.continuationContents?.musicShelfContinuation?.continuations?.getContinuation()
         )
     }
 
@@ -397,44 +398,37 @@ object YouTube {
         when {
             response.continuationContents?.gridContinuation != null -> {
                 val gridContinuation = response.continuationContents.gridContinuation
+                val items = gridContinuation.items.mapNotNull {
+                    it.musicTwoRowItemRenderer?.let { renderer ->
+                        ArtistItemsPage.fromMusicTwoRowItemRenderer(renderer)
+                    }
+                }
                 ArtistItemsContinuationPage(
-                    items = gridContinuation.items.mapNotNull {
-                        it.musicTwoRowItemRenderer?.let { renderer ->
-                            ArtistItemsPage.fromMusicTwoRowItemRenderer(renderer)
-                        }
-                    },
-                    continuation = gridContinuation.continuations?.getContinuation()
+                    items = items,
+                    continuation = if (items.isEmpty()) null else gridContinuation.continuations?.getContinuation()
                 )
             }
 
             response.continuationContents?.musicPlaylistShelfContinuation != null -> {
                 val musicPlaylistShelfContinuation = response.continuationContents.musicPlaylistShelfContinuation
+                val items = musicPlaylistShelfContinuation.contents.getItems().mapNotNull {
+                    ArtistItemsPage.fromMusicResponsiveListItemRenderer(it)
+                }
                 ArtistItemsContinuationPage(
-                    items = musicPlaylistShelfContinuation.contents.getItems().mapNotNull {
-                        ArtistItemsPage.fromMusicResponsiveListItemRenderer(it)
-                    },
-                    continuation = musicPlaylistShelfContinuation.continuations?.getContinuation()
-                )
-            }
-
-            response.continuationContents?.musicShelfContinuation != null -> {
-                val musicShelfContinuation = response.continuationContents.musicShelfContinuation
-                ArtistItemsContinuationPage(
-                    items = musicShelfContinuation.contents?.getItems()?.mapNotNull {
-                        ArtistItemsPage.fromMusicResponsiveListItemRenderer(it)
-                    } ?: emptyList(),
-                    continuation = musicShelfContinuation.continuations?.getContinuation()
+                    items = items,
+                    continuation = if (items.isEmpty()) null else musicPlaylistShelfContinuation.continuations?.getContinuation()
                 )
             }
 
             else -> {
                 val continuationItems = response.onResponseReceivedActions?.firstOrNull()
                     ?.appendContinuationItemsAction?.continuationItems
+                val items = continuationItems?.getItems()?.mapNotNull {
+                    ArtistItemsPage.fromMusicResponsiveListItemRenderer(it)
+                } ?: emptyList()
                 ArtistItemsContinuationPage(
-                    items = continuationItems?.getItems()?.mapNotNull {
-                        ArtistItemsPage.fromMusicResponsiveListItemRenderer(it)
-                    } ?: emptyList(),
-                    continuation = continuationItems?.getContinuation()
+                    items = items,
+                    continuation = if (items.isEmpty()) null else continuationItems?.getContinuation()
                 )
             }
         }
@@ -450,9 +444,6 @@ object YouTube {
         val header = base?.musicResponsiveHeaderRenderer ?: base?.musicEditablePlaylistDetailHeaderRenderer?.header?.musicResponsiveHeaderRenderer
 
         val editable = base?.musicEditablePlaylistDetailHeaderRenderer != null
-        
-        val musicPlaylistShelfRenderer = response.contents?.twoColumnBrowseResultsRenderer?.secondaryContents?.sectionListRenderer
-            ?.contents?.firstOrNull()?.musicPlaylistShelfRenderer
 
         PlaylistPage(
             playlist = PlaylistItem(
@@ -473,11 +464,12 @@ object YouTube {
                 }?.menuNavigationItemRenderer?.navigationEndpoint?.watchPlaylistEndpoint,
                 isEditable = editable
             ),
-            songs = musicPlaylistShelfRenderer?.contents?.getItems()?.mapNotNull {
+            songs = response.contents?.twoColumnBrowseResultsRenderer?.secondaryContents?.sectionListRenderer
+                ?.contents?.firstOrNull()?.musicPlaylistShelfRenderer?.contents?.getItems()?.mapNotNull {
                     PlaylistPage.fromMusicResponsiveListItemRenderer(it)
                 } ?: emptyList(),
-            songsContinuation = musicPlaylistShelfRenderer?.continuations?.getContinuation()
-                ?: musicPlaylistShelfRenderer?.contents?.getContinuation(),
+            songsContinuation = response.contents?.twoColumnBrowseResultsRenderer?.secondaryContents?.sectionListRenderer
+                ?.contents?.firstOrNull()?.musicPlaylistShelfRenderer?.contents?.getContinuation(),
             continuation = response.contents?.twoColumnBrowseResultsRenderer?.secondaryContents?.sectionListRenderer
                 ?.continuations?.getContinuation()
         )
@@ -492,7 +484,8 @@ object YouTube {
         ).body<BrowseResponse>()
 
         val mainContents: List<MusicShelfRenderer.Content> = response.continuationContents?.sectionListContinuation?.contents
-            ?.flatMap { content: SectionListRenderer.Content -> content.musicPlaylistShelfRenderer?.contents.orEmpty() }
+            ?.mapNotNull { content: SectionListRenderer.Content -> content.musicPlaylistShelfRenderer?.contents }
+            ?.flatten()
             ?: emptyList()
 
         val appendedContents: List<MusicShelfRenderer.Content> = response.onResponseReceivedActions
@@ -504,26 +497,28 @@ object YouTube {
         val allContents = mainContents + appendedContents
 
         val songs = allContents
-            .mapNotNull { content -> content.musicResponsiveListItemRenderer }
+            .mapNotNull { content: MusicShelfRenderer.Content -> content.musicResponsiveListItemRenderer }
             .mapNotNull { renderer -> PlaylistPage.fromMusicResponsiveListItemRenderer(renderer) }
 
-        val nextContinuation = response.continuationContents
-            ?.sectionListContinuation
-            ?.continuations
-            ?.getContinuation()
-            ?: response.continuationContents
-                ?.musicPlaylistShelfContinuation
+        val nextContinuation = if (songs.isEmpty()) null else {
+            response.continuationContents
+                ?.sectionListContinuation
                 ?.continuations
                 ?.getContinuation()
-            ?: response.continuationContents
-                ?.musicShelfContinuation
-                ?.continuations
-                ?.getContinuation()
-            ?: response.onResponseReceivedActions
-                ?.firstOrNull()
-                ?.appendContinuationItemsAction
-                ?.continuationItems
-                ?.getContinuation()
+                ?: response.continuationContents
+                    ?.musicPlaylistShelfContinuation
+                    ?.continuations
+                    ?.getContinuation()
+                ?: response.continuationContents
+                    ?.musicShelfContinuation
+                    ?.continuations
+                    ?.getContinuation()
+                ?: response.onResponseReceivedActions
+                    ?.firstOrNull()
+                    ?.appendContinuationItemsAction
+                    ?.continuationItems
+                    ?.getContinuation()
+        }
 
         PlaylistContinuationPage(
             songs = songs,
@@ -634,40 +629,15 @@ object YouTube {
         ).body<BrowseResponse>()
 
         val tabs = response.contents?.singleColumnBrowseResultsRenderer?.tabs
-        val numTabs = tabs?.size ?: 0
 
-        // Determine which tab to use based on number of tabs (like ytmusicapi)
-        // Non-premium users have fewer tabs, so we need to adjust
-        val effectiveTabIndex = when {
-            numTabs == 0 -> 0
-            numTabs < 3 && tabIndex > 0 -> 1  // For non-premium: use tab 1 for library content
-            numTabs >= 3 && tabIndex > 0 -> 2  // For premium: use tab 2 for library content
-            else -> tabIndex
+        val contents = if (tabs != null && tabs.size >= tabIndex) {
+            tabs[tabIndex].tabRenderer.content?.sectionListRenderer?.contents?.firstOrNull()
         }
-
-        val sectionList = if (tabs != null && numTabs > effectiveTabIndex) {
-            tabs[effectiveTabIndex].tabRenderer.content?.sectionListRenderer
-        } else {
-            // Fallback to first tab if effectiveTabIndex is out of bounds
-            tabs?.firstOrNull()?.tabRenderer?.content?.sectionListRenderer
+        else {
+            null
         }
-
-        val contents = sectionList?.contents?.firstOrNull()
-
-        // Check for itemSectionRenderer pattern (2025/2026 API)
-        val itemSectionContent = contents?.itemSectionRenderer?.contents?.firstOrNull()
-
-        // Try to find gridRenderer or musicShelfRenderer in various locations
-        val anyGridRenderer = contents?.gridRenderer
-            ?: itemSectionContent?.gridRenderer
-            ?: sectionList?.contents?.mapNotNull { it.gridRenderer }?.firstOrNull()
-
-        val anyMusicShelfRenderer = contents?.musicShelfRenderer
-            ?: itemSectionContent?.musicShelfRenderer
-            ?: sectionList?.contents?.mapNotNull { it.musicShelfRenderer }?.firstOrNull()
 
         when {
-            // Direct gridRenderer in contents
             contents?.gridRenderer != null -> {
                 LibraryPage(
                     items = contents.gridRenderer.items
@@ -677,60 +647,12 @@ object YouTube {
                 )
             }
 
-            // Direct musicShelfRenderer in contents
-            contents?.musicShelfRenderer?.contents != null -> {
+            else -> { // contents?.musicShelfRenderer != null
                 LibraryPage(
-                    items = contents.musicShelfRenderer.contents
+                    items = contents?.musicShelfRenderer?.contents!!
                         .mapNotNull (MusicShelfRenderer.Content::musicResponsiveListItemRenderer)
                         .mapNotNull { LibraryPage.fromMusicResponsiveListItemRenderer(it) },
                     continuation = contents.musicShelfRenderer.continuations?.getContinuation()
-                )
-            }
-
-            // itemSectionRenderer with gridRenderer (2025/2026 API pattern)
-            itemSectionContent?.gridRenderer != null -> {
-                LibraryPage(
-                    items = itemSectionContent.gridRenderer.items
-                        .mapNotNull (GridRenderer.Item::musicTwoRowItemRenderer)
-                        .mapNotNull { LibraryPage.fromMusicTwoRowItemRenderer(it) },
-                    continuation = itemSectionContent.gridRenderer.continuations?.getContinuation()
-                )
-            }
-
-            // itemSectionRenderer with musicShelfRenderer (2025/2026 API pattern)
-            itemSectionContent?.musicShelfRenderer?.contents != null -> {
-                LibraryPage(
-                    items = itemSectionContent.musicShelfRenderer.contents
-                        .mapNotNull (MusicShelfRenderer.Content::musicResponsiveListItemRenderer)
-                        .mapNotNull { LibraryPage.fromMusicResponsiveListItemRenderer(it) },
-                    continuation = itemSectionContent.musicShelfRenderer.continuations?.getContinuation()
-                )
-            }
-
-            // Fallback: try any gridRenderer found in section list
-            anyGridRenderer != null -> {
-                LibraryPage(
-                    items = anyGridRenderer.items
-                        .mapNotNull (GridRenderer.Item::musicTwoRowItemRenderer)
-                        .mapNotNull { LibraryPage.fromMusicTwoRowItemRenderer(it) },
-                    continuation = anyGridRenderer.continuations?.getContinuation()
-                )
-            }
-
-            // Fallback: try any musicShelfRenderer found in section list
-            anyMusicShelfRenderer?.contents != null -> {
-                LibraryPage(
-                    items = anyMusicShelfRenderer.contents
-                        .mapNotNull (MusicShelfRenderer.Content::musicResponsiveListItemRenderer)
-                        .mapNotNull { LibraryPage.fromMusicResponsiveListItemRenderer(it) },
-                    continuation = anyMusicShelfRenderer.continuations?.getContinuation()
-                )
-            }
-
-            else -> {
-                LibraryPage(
-                    items = emptyList(),
-                    continuation = null
                 )
             }
         }
@@ -745,10 +667,6 @@ object YouTube {
 
         val contents = response.continuationContents
 
-        // Check for sectionListContinuation with itemSectionRenderer (2025/2026 API)
-        val sectionContent = contents?.sectionListContinuation?.contents?.firstOrNull()
-        val itemSectionContent = sectionContent?.itemSectionRenderer?.contents?.firstOrNull()
-
         when {
             contents?.gridContinuation != null -> {
                 LibraryContinuationPage(
@@ -759,50 +677,12 @@ object YouTube {
                 )
             }
 
-            contents?.musicShelfContinuation != null -> {
+            else -> { // contents?.musicShelfContinuation != null
                 LibraryContinuationPage(
-                    items = contents.musicShelfContinuation.contents
-                        ?.mapNotNull (MusicShelfRenderer.Content::musicResponsiveListItemRenderer)
-                        ?.mapNotNull { LibraryPage.fromMusicResponsiveListItemRenderer(it) }
-                        ?: emptyList(),
-                    continuation = contents.musicShelfContinuation.continuations?.getContinuation()
-                )
-            }
-
-            // sectionListContinuation with direct gridRenderer
-            sectionContent?.gridRenderer != null -> {
-                LibraryContinuationPage(
-                    items = sectionContent.gridRenderer.items
-                        .mapNotNull (GridRenderer.Item::musicTwoRowItemRenderer)
-                        .mapNotNull { LibraryPage.fromMusicTwoRowItemRenderer(it) },
-                    continuation = sectionContent.gridRenderer.continuations?.getContinuation()
-                )
-            }
-
-            // sectionListContinuation with itemSectionRenderer containing gridRenderer (2025/2026 API)
-            itemSectionContent?.gridRenderer != null -> {
-                LibraryContinuationPage(
-                    items = itemSectionContent.gridRenderer.items
-                        .mapNotNull (GridRenderer.Item::musicTwoRowItemRenderer)
-                        .mapNotNull { LibraryPage.fromMusicTwoRowItemRenderer(it) },
-                    continuation = itemSectionContent.gridRenderer.continuations?.getContinuation()
-                )
-            }
-
-            // sectionListContinuation with itemSectionRenderer containing musicShelfRenderer (2025/2026 API)
-            itemSectionContent?.musicShelfRenderer?.contents != null -> {
-                LibraryContinuationPage(
-                    items = itemSectionContent.musicShelfRenderer.contents
+                    items = contents?.musicShelfContinuation?.contents!!
                         .mapNotNull (MusicShelfRenderer.Content::musicResponsiveListItemRenderer)
                         .mapNotNull { LibraryPage.fromMusicResponsiveListItemRenderer(it) },
-                    continuation = itemSectionContent.musicShelfRenderer.continuations?.getContinuation()
-                )
-            }
-
-            else -> {
-                LibraryContinuationPage(
-                    items = emptyList(),
-                    continuation = null
+                    continuation = contents.musicShelfContinuation.continuations?.getContinuation()
                 )
             }
         }
@@ -817,18 +697,21 @@ object YouTube {
             setLogin = true
         ).body<BrowseResponse>()
 
-        val sectionContents = response.continuationContents?.sectionListContinuation?.contents?.firstOrNull()
+        val gridItems = response.continuationContents?.sectionListContinuation?.contents?.firstOrNull()
+            ?.gridRenderer?.items
         
-        // Try direct gridRenderer first
-        val gridItems = sectionContents?.gridRenderer?.items
-            // Fallback: try itemSectionRenderer pattern (2025/2026 API)
-            ?: sectionContents?.itemSectionRenderer?.contents?.firstOrNull()?.gridRenderer?.items
+        if (gridItems == null) {
+            return@runCatching LibraryPage(
+                items = emptyList(),
+                continuation = null
+            )
+        }
         
-        val items = gridItems?.mapNotNull {
+        val items = gridItems.mapNotNull {
             it.musicTwoRowItemRenderer?.let { renderer ->
                 LibraryPage.fromMusicTwoRowItemRenderer(renderer)
             }
-        }?.toMutableList() ?: mutableListOf()
+        }.toMutableList()
 
         /*
          * We need to fetch the artist page when accessing the library because it allows to have
@@ -839,8 +722,11 @@ object YouTube {
          * square picture, which is what we need.
          */
         items.forEachIndexed { index, item ->
-            if (item is ArtistItem)
-                items[index] = artist(item.id).getOrNull()?.artist?.copy(thumbnail = item.thumbnail) ?: item
+            if (item is ArtistItem) {
+                artist(item.id).getOrNull()?.artist?.let { fetchedArtist ->
+                    items[index] = fetchedArtist.copy(thumbnail = item.thumbnail)
+                }
+            }
         }
 
         LibraryPage(

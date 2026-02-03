@@ -109,7 +109,7 @@ class WrappedAudioService(
                 YTPlayerUtils.playerResponseForPlayback(
                     videoId = songId,
                     audioQuality = audioQuality,
-                    connectivityManager = connectivityManager
+                    connectivityManager = connectivityManager,
                 ).getOrNull()
             }
             val streamUrl = playbackData?.streamUrl

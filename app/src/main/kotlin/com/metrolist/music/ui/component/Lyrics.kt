@@ -9,6 +9,7 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Intent
 import android.content.res.Configuration
+import android.text.Layout
 import android.os.Build
 import android.view.WindowManager
 import android.widget.Toast
@@ -451,6 +452,8 @@ fun Lyrics(
     val selectedIndices = remember { mutableStateListOf<Int>() }
     var showMaxSelectionToast by remember { mutableStateOf(false) } // State for showing max selection toast
 
+    val isLyricsProviderShown = lyricsEntity?.provider != null && lyricsEntity?.provider != "Unknown" && !isSelectionModeActive
+
     val lazyListState = rememberLazyListState()
     
     // Professional animation states for smooth Metrolist-style transitions
@@ -545,7 +548,8 @@ fun Lyrics(
         if (isAnimating) return // Prevent multiple animations
         isAnimating = true
         try {
-            val itemInfo = lazyListState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == targetIndex }
+            val lookUpIndex = if (isLyricsProviderShown) targetIndex + 1 else targetIndex
+            val itemInfo = lazyListState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == lookUpIndex }
             if (itemInfo != null) {
                 // Item is visible, animate directly to center without sudden jumps
                 val viewportHeight = lazyListState.layoutInfo.viewportEndOffset - lazyListState.layoutInfo.viewportStartOffset
@@ -662,6 +666,21 @@ fun Lyrics(
                 currentLineIndex
             } else {
                 if (isSeeking || isSelectionModeActive) deferredCurrentLineIndex else currentLineIndex
+            }
+
+            // Show lyrics provider at the top, scrolling with content
+            if (isLyricsProviderShown) {
+                item {
+                    Text(
+                        text = "Lyrics from ${lyricsEntity?.provider}",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                    )
+                }
             }
 
             if (lyrics == null) {
@@ -1478,10 +1497,16 @@ fun Lyrics(
         val headerFooterEstimate = (48.dp + 14.dp + 16.dp + 20.dp + 8.dp + 28.dp * 2)
         val previewAvailableHeight = previewBoxHeight - headerFooterEstimate
 
+        val lyricsTextAlign = when (lyricsTextPosition) {
+            LyricsPosition.LEFT -> TextAlign.Left
+            LyricsPosition.CENTER -> TextAlign.Center
+            LyricsPosition.RIGHT -> TextAlign.Right
+        }
+
         val textStyleForMeasurement = TextStyle(
             color = previewTextColor,
             fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center
+            textAlign = lyricsTextAlign
         )
         val textMeasurer = rememberTextMeasurer()
 
@@ -1554,7 +1579,8 @@ fun Lyrics(
                             mediaMetadata = mediaMetadata ?: return@Box,
                             backgroundColor = previewBackgroundColor,
                             textColor = previewTextColor,
-                            secondaryTextColor = previewSecondaryTextColor
+                                secondaryTextColor = previewSecondaryTextColor,
+                                textAlign = lyricsTextAlign
                         )
                     }
 
@@ -1633,6 +1659,11 @@ fun Lyrics(
                                         backgroundColor = previewBackgroundColor.toArgb(),
                                         textColor = previewTextColor.toArgb(),
                                         secondaryTextColor = previewSecondaryTextColor.toArgb(),
+                                        lyricsAlignment = when (lyricsTextPosition) {
+                                            LyricsPosition.LEFT -> Layout.Alignment.ALIGN_NORMAL
+                                            LyricsPosition.CENTER -> Layout.Alignment.ALIGN_CENTER
+                                            LyricsPosition.RIGHT -> Layout.Alignment.ALIGN_OPPOSITE
+                                        }
                                     )
                                     val timestamp = System.currentTimeMillis()
                                     val filename = "lyrics_$timestamp"

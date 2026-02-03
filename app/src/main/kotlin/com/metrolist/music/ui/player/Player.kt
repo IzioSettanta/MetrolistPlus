@@ -10,6 +10,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
+import android.view.WindowManager
 import android.widget.Toast
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -126,8 +127,10 @@ import com.metrolist.music.LocalDatabase
 import com.metrolist.music.LocalDownloadUtil
 import com.metrolist.music.LocalPlayerConnection
 import com.metrolist.music.R
+import com.metrolist.music.constants.CropAlbumArtKey
 import com.metrolist.music.constants.DarkModeKey
 import com.metrolist.music.constants.HidePlayerThumbnailKey
+import com.metrolist.music.constants.KeepScreenOn
 import com.metrolist.music.constants.PlayerBackgroundStyle
 import com.metrolist.music.constants.PlayerBackgroundStyleKey
 import com.metrolist.music.constants.PlayerButtonsStyle
@@ -137,6 +140,7 @@ import com.metrolist.music.constants.QueuePeekHeight
 import com.metrolist.music.constants.SliderStyle
 import com.metrolist.music.constants.SliderStyleKey
 import com.metrolist.music.constants.SquigglySliderKey
+import com.metrolist.music.constants.ThumbnailCornerRadius
 import com.metrolist.music.constants.UseNewPlayerDesignKey
 import com.metrolist.music.db.entities.LyricsEntity
 import com.metrolist.music.extensions.togglePlayPause
@@ -190,6 +194,7 @@ fun BottomSheetPlayer(
         defaultValue = true
     )
     val (hidePlayerThumbnail, onHidePlayerThumbnailChange) = rememberPreference(HidePlayerThumbnailKey, false)
+    val cropAlbumArt by rememberPreference(CropAlbumArtKey, false)
     val playerBackground by rememberEnumPreference(
         key = PlayerBackgroundStyleKey,
         defaultValue = PlayerBackgroundStyle.DEFAULT
@@ -211,7 +216,12 @@ fun BottomSheetPlayer(
             PlayerBackgroundStyle.DEFAULT -> useDarkTheme
         }
     }
-    DisposableEffect(playerBackground, state.isExpanded, useDarkTheme) {
+
+    val isPlaying by playerConnection.isPlaying.collectAsState()
+    val isKeepScreenOn by rememberPreference(KeepScreenOn, false)
+    val keepScreenOn = isPlaying && isKeepScreenOn
+
+    DisposableEffect(playerBackground, state.isExpanded, useDarkTheme, keepScreenOn) {
         val window = (context as? android.app.Activity)?.window
         if (window != null && state.isExpanded) {
             val insetsController = WindowCompat.getInsetsController(window, window.decorView)
@@ -224,12 +234,18 @@ fun BottomSheetPlayer(
                     insetsController.isAppearanceLightStatusBars = !useDarkTheme
                 }
             }
+
+            if (keepScreenOn && state.isExpanded)
+                window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            else
+                window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
         
         onDispose {
             if (window != null) {
                 val insetsController = WindowCompat.getInsetsController(window, window.decorView)
                 insetsController.isAppearanceLightStatusBars = !useDarkTheme
+                window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             }
         }
     }
@@ -245,7 +261,6 @@ fun BottomSheetPlayer(
         }
 
     val playbackState by playerConnection.playbackState.collectAsState()
-    val isPlaying by playerConnection.isPlaying.collectAsState()
     val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
     val currentSong by playerConnection.currentSong.collectAsState(initial = null)
     val automix by playerConnection.service.automixItems.collectAsState()
@@ -709,7 +724,7 @@ fun BottomSheetPlayer(
                                 Box(
                                     modifier = Modifier
                                         .size(56.dp)
-                                        .clip(RoundedCornerShape(8.dp))
+                                        .clip(RoundedCornerShape(ThumbnailCornerRadius))
                                         .background(MaterialTheme.colorScheme.surfaceVariant),
                                     contentAlignment = Alignment.Center
                                 ) {
@@ -725,9 +740,10 @@ fun BottomSheetPlayer(
                                 AsyncImage(
                                     model = mediaMetadata.thumbnailUrl,
                                     contentDescription = null,
+                                    contentScale = if (cropAlbumArt) ContentScale.Crop else ContentScale.Fit,
                                     modifier = Modifier
                                         .size(56.dp)
-                                        .clip(RoundedCornerShape(8.dp))
+                                        .clip(RoundedCornerShape(ThumbnailCornerRadius))
                                 )
                             }
                             Spacer(modifier = Modifier.width(12.dp))
@@ -1653,9 +1669,9 @@ fun InlineLyricsView(
                         com.metrolist.music.di.LyricsHelperEntryPoint::class.java
                     )
                     val lyricsHelper = entryPoint.lyricsHelper()
-                    val fetchedLyrics = lyricsHelper.getLyrics(mediaMetadata)
+                    val fetchedLyricsWithProvider = lyricsHelper.getLyrics(mediaMetadata)
                     database.query {
-                        upsert(LyricsEntity(mediaMetadata.id, fetchedLyrics))
+                        upsert(LyricsEntity(mediaMetadata.id, fetchedLyricsWithProvider.lyrics, fetchedLyricsWithProvider.provider))
                     }
                 } catch (e: Exception) {
                     // Handle error

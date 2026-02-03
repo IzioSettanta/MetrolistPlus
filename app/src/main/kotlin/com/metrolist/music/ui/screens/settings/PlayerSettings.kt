@@ -45,6 +45,7 @@ import com.metrolist.music.constants.AutoLoadMoreKey
 import com.metrolist.music.constants.DisableLoadMoreWhenRepeatAllKey
 import com.metrolist.music.constants.AutoSkipNextOnErrorKey
 import com.metrolist.music.constants.EnableGoogleCastKey
+import com.metrolist.music.constants.PersistentShuffleAcrossQueuesKey
 import com.metrolist.music.constants.RememberShuffleAndRepeatKey
 import com.metrolist.music.constants.ShufflePlaylistFirstKey
 import com.metrolist.music.constants.PersistentQueueKey
@@ -54,6 +55,7 @@ import com.metrolist.music.constants.SkipSilenceKey
 import com.metrolist.music.constants.StopMusicOnTaskClearKey
 import com.metrolist.music.constants.HistoryDuration
 import com.metrolist.music.constants.PauseOnMute
+import com.metrolist.music.constants.KeepScreenOn
 import com.metrolist.music.constants.SeekExtraSeconds
 import com.metrolist.music.ui.component.EnumDialog
 import com.metrolist.music.ui.component.IconButton
@@ -126,6 +128,10 @@ fun PlayerSettings(
         AutoSkipNextOnErrorKey,
         defaultValue = false
     )
+    val (persistentShuffleAcrossQueues, onPersistentShuffleAcrossQueuesChange) = rememberPreference(
+        PersistentShuffleAcrossQueuesKey,
+        defaultValue = false
+    )
     val (rememberShuffleAndRepeat, onRememberShuffleAndRepeatChange) = rememberPreference(
         RememberShuffleAndRepeatKey,
         defaultValue = true
@@ -140,6 +146,10 @@ fun PlayerSettings(
     )
     val (pauseOnMute, onPauseOnMuteChange) = rememberPreference(
         PauseOnMute,
+        defaultValue = false
+    )
+    val (keepScreenOn, onKeepScreenOnChange) = rememberPreference(
+        KeepScreenOn,
         defaultValue = false
     )
     val (historyDuration, onHistoryDurationChange) = rememberPreference(
@@ -464,6 +474,27 @@ fun PlayerSettings(
                 ),
                 Material3SettingsItem(
                     icon = painterResource(R.drawable.shuffle),
+                    title = { Text(stringResource(R.string.persistent_shuffle_title)) },
+                    description = { Text(stringResource(R.string.persistent_shuffle_desc)) },
+                    trailingContent = {
+                        Switch(
+                            checked = persistentShuffleAcrossQueues,
+                            onCheckedChange = onPersistentShuffleAcrossQueuesChange,
+                            thumbContent = {
+                                Icon(
+                                    painter = painterResource(
+                                        id = if (persistentShuffleAcrossQueues) R.drawable.check else R.drawable.close
+                                    ),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(SwitchDefaults.IconSize)
+                                )
+                            }
+                        )
+                    },
+                    onClick = { onPersistentShuffleAcrossQueuesChange(!persistentShuffleAcrossQueues) }
+                ),
+                Material3SettingsItem(
+                    icon = painterResource(R.drawable.shuffle),
                     title = { Text(stringResource(R.string.remember_shuffle_and_repeat)) },
                     description = { Text(stringResource(R.string.remember_shuffle_and_repeat_desc)) },
                     trailingContent = {
@@ -572,6 +603,26 @@ fun PlayerSettings(
                         )
                     },
                     onClick = { onPauseOnMuteChange(!pauseOnMute) }
+                ),
+                Material3SettingsItem(
+                    icon = painterResource(R.drawable.screenshot),
+                    title = { Text(stringResource(R.string.keep_screen_on_when_player_is_expanded)) },
+                    trailingContent = {
+                        Switch(
+                            checked = keepScreenOn,
+                            onCheckedChange = onKeepScreenOnChange,
+                            thumbContent = {
+                                Icon(
+                                    painter = painterResource(
+                                        id = if (keepScreenOn) R.drawable.check else R.drawable.close
+                                    ),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(SwitchDefaults.IconSize)
+                                )
+                            }
+                        )
+                    },
+                    onClick = { onKeepScreenOnChange(!keepScreenOn) }
                 )
             )
         )
