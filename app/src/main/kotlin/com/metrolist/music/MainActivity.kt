@@ -244,9 +244,12 @@ class MainActivity : ComponentActivity() {
                                 val flags = PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
                                 val pending = PendingIntent.getActivity(this@MainActivity, 1001, intent, flags)
                                 val notif = NotificationCompat.Builder(this@MainActivity, "updates")
-                                    .setSmallIcon(R.drawable.update).setContentTitle(getString(R.string.update_available_title))
-                                    .setContentText(it).setContentIntent(pending).setAutoCancel(true).build()
-
+                                    .setSmallIcon(R.drawable.update)
+                                    .setContentTitle(getString(R.string.update_available_title))
+                                    .setContentText(it)
+                                    .setContentIntent(pending)
+                                    .setAutoCancel(true)
+                                    .build()
                                 if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU || ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
                                     NotificationManagerCompat.from(this@MainActivity).notify(1001, notif)
                                 }
@@ -442,11 +445,16 @@ class MainActivity : ComponentActivity() {
                     ) {
                         Row(Modifier.fillMaxSize()) {
                             if (showRail && currentRoute != "wrapped") {
-                                AppNavigationRail(navigationItems = navigationItems, currentRoute = currentRoute, onItemClick = { screen, isSelected ->
-                                    if (playerBottomSheetState.isExpanded) playerBottomSheetState.collapseSoft()
-                                    if (isSelected) navController.currentBackStackEntry?.savedStateHandle?.set("scrollToTop", true)
-                                    else navController.navigate(screen.route) { popUpTo(navController.graph.startDestinationId) { saveState = true }; launchSingleTop = true; restoreState = true }
-                                }, pureBlack = pureBlack)
+                                AppNavigationRail(
+                                    navigationItems = navigationItems,
+                                    currentRoute = currentRoute,
+                                    onItemClick = { screen, isSelected ->
+                                        if (playerBottomSheetState.isExpanded) playerBottomSheetState.collapseSoft()
+                                        if (isSelected) navController.currentBackStackEntry?.savedStateHandle?.set("scrollToTop", true)
+                                        else navController.navigate(screen.route) { popUpTo(navController.graph.startDestinationId) { saveState = true }; launchSingleTop = true; restoreState = true }
+                                    },
+                                    pureBlack = pureBlack
+                                )
                             }
                             Box(Modifier.weight(1f)) {
                                 NavHost(
@@ -455,6 +463,15 @@ class MainActivity : ComponentActivity() {
                                     modifier = Modifier.nestedScroll(topAppBarScrollBehavior.nestedScrollConnection)
                                 ) {
                                     navigationBuilder(navController, topAppBarScrollBehavior, latestVersionName, this@MainActivity, snackbarHostState)
+                                }
+
+                                // --- NEW --- Render Player in landscape!
+                                if (showRail && currentRoute != "wrapped" && playerConnection != null) {
+                                    BottomSheetPlayer(
+                                        state = playerBottomSheetState,
+                                        navController = navController,
+                                        pureBlack = pureBlack
+                                    )
                                 }
                             }
                         }
@@ -470,7 +487,10 @@ class MainActivity : ComponentActivity() {
         intent.data = null
         val coroutineScope = lifecycle.coroutineScope
         when (val path = uri.pathSegments.firstOrNull()) {
-            "playlist" -> uri.getQueryParameter("list")?.let { id -> if (id.startsWith("OLAK5uy_")) coroutineScope.launch(Dispatchers.IO) { YouTube.albumSongs(id).onSuccess { songs -> songs.firstOrNull()?.album?.id?.let { bId -> withContext(Dispatchers.Main) { navController.navigate("album/$bId") } } } } else navController.navigate("online_playlist/$id") }
+            "playlist" -> uri.getQueryParameter("list")?.let { id ->
+                if (id.startsWith("OLAK5uy_")) coroutineScope.launch(Dispatchers.IO) { YouTube.albumSongs(id).onSuccess { songs -> songs.firstOrNull()?.album?.id?.let { bId -> withContext(Dispatchers.Main) { navController.navigate("album/$bId") } } } }
+                else navController.navigate("online_playlist/$id")
+            }
             "browse" -> uri.lastPathSegment?.let { id -> navController.navigate("album/$id") }
             "channel", "c" -> uri.lastPathSegment?.let { id -> navController.navigate("artist/$id") }
             "search" -> uri.getQueryParameter("q")?.let { q -> navController.navigate("search/${URLEncoder.encode(q, "UTF-8")}") }
@@ -484,7 +504,10 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun setSystemBarAppearance(isDark: Boolean) {
-        WindowCompat.getInsetsController(window, window.decorView.rootView).apply { isAppearanceLightStatusBars = !isDark; isAppearanceLightNavigationBars = !isDark }
+        WindowCompat.getInsetsController(window, window.decorView.rootView).apply {
+            isAppearanceLightStatusBars = !isDark
+            isAppearanceLightNavigationBars = !isDark
+        }
     }
 }
 
@@ -493,3 +516,4 @@ val LocalPlayerConnection = staticCompositionLocalOf<PlayerConnection?> { error(
 val LocalPlayerAwareWindowInsets = compositionLocalOf<WindowInsets> { error("No WindowInsets") }
 val LocalDownloadUtil = staticCompositionLocalOf<DownloadUtil> { error("No DownloadUtil") }
 val LocalSyncUtils = staticCompositionLocalOf<SyncUtils> { error("No SyncUtils") }
+
