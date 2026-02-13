@@ -6,7 +6,6 @@
 package com.metrolist.music.ui.screens.settings.integrations
 
 import android.content.Intent
-import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -58,6 +57,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.net.toUri
 import androidx.media3.common.Player.STATE_READY
 import androidx.navigation.NavController
 import coil3.compose.AsyncImage
@@ -67,8 +67,8 @@ import com.metrolist.music.R
 import com.metrolist.music.constants.DiscordInfoDismissedKey
 import com.metrolist.music.constants.DiscordNameKey
 import com.metrolist.music.constants.DiscordTokenKey
-import com.metrolist.music.constants.DiscordUsernameKey
 import com.metrolist.music.constants.DiscordUseDetailsKey
+import com.metrolist.music.constants.DiscordUsernameKey
 import com.metrolist.music.constants.EnableDiscordRPCKey
 import com.metrolist.music.db.entities.Song
 import com.metrolist.music.ui.component.IconButton
@@ -78,6 +78,7 @@ import com.metrolist.music.ui.component.PreferenceGroupTitle
 import com.metrolist.music.ui.component.SwitchPreference
 import com.metrolist.music.ui.component.TextFieldDialog
 import com.metrolist.music.ui.utils.backToMain
+import com.metrolist.music.utils.SuperProperties
 import com.metrolist.music.utils.makeTimeString
 import com.metrolist.music.utils.rememberPreference
 import com.my.kizzy.rpc.KizzyRPC
@@ -85,7 +86,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import androidx.core.net.toUri
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -117,7 +117,11 @@ fun DiscordSettings(
         }
         // Fetch user info when token changes
         launch(Dispatchers.IO) {
-            KizzyRPC.getUserInfo(token).onSuccess {
+            KizzyRPC.getUserInfo(
+                token, 
+                SuperProperties.userAgent, 
+                SuperProperties.superPropertiesBase64
+            ).onSuccess {
                 discordUsername = it.username
                 discordName = it.name
             }.onFailure {
@@ -351,14 +355,14 @@ fun RichPresence(song: Song?, currentPlaybackTimeMillis: Long = 0L) {
                         modifier =
                         Modifier
                             .size(96.dp)
-                            .clip(RoundedCornerShape(12.dp))
+                            .clip(RoundedCornerShape(3.dp))
                             .align(Alignment.TopStart)
                             .run {
                                 if (song == null) {
                                     border(
                                         2.dp,
                                         MaterialTheme.colorScheme.onSurface,
-                                        RoundedCornerShape(12.dp)
+                                        RoundedCornerShape(3.dp)
                                     )
                                 } else {
                                     this
@@ -452,7 +456,7 @@ fun RichPresence(song: Song?, currentPlaybackTimeMillis: Long = 0L) {
                 onClick = {
                     val intent = Intent(
                         Intent.ACTION_VIEW,
-                        "https://github.com/mostafaalagamy/Metrolist".toUri()
+                        "https://github.com/MetrolistGroup/Metrolist".toUri()
                     )
                     context.startActivity(intent)
                 },

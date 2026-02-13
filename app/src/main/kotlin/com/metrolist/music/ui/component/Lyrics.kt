@@ -10,21 +10,19 @@ import android.app.Activity
 import android.content.Intent
 import android.content.res.Configuration
 import android.text.Layout
-import android.os.Build
 import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
-import androidx.annotation.RequiresApi
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -54,7 +52,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.BasicAlertDialog
@@ -86,32 +83,29 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.graphics.Shadow
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.tween
-import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -120,48 +114,59 @@ import coil3.ImageLoader
 import coil3.request.ImageRequest
 import coil3.request.allowHardware
 import coil3.toBitmap
+import com.metrolist.music.LocalListenTogetherManager
 import com.metrolist.music.LocalPlayerConnection
 import com.metrolist.music.R
 import com.metrolist.music.constants.DarkModeKey
-import com.metrolist.music.constants.LyricsClickKey
-import com.metrolist.music.constants.LyricsRomanizeBelarusianKey
-import com.metrolist.music.constants.LyricsRomanizeBulgarianKey
-import com.metrolist.music.constants.LyricsRomanizeCyrillicByLineKey
-import com.metrolist.music.constants.LyricsGlowEffectKey
 import com.metrolist.music.constants.LyricsAnimationStyle
 import com.metrolist.music.constants.LyricsAnimationStyleKey
-import com.metrolist.music.constants.LyricsTextSizeKey
+import com.metrolist.music.constants.LyricsClickKey
+import com.metrolist.music.constants.LyricsGlowEffectKey
 import com.metrolist.music.constants.LyricsLineSpacingKey
+import com.metrolist.music.constants.LyricsRomanizeBelarusianKey
+import com.metrolist.music.constants.LyricsRomanizeBulgarianKey
 import com.metrolist.music.constants.LyricsRomanizeChineseKey
+import com.metrolist.music.constants.LyricsRomanizeCyrillicByLineKey
 import com.metrolist.music.constants.LyricsRomanizeJapaneseKey
 import com.metrolist.music.constants.LyricsRomanizeKoreanKey
 import com.metrolist.music.constants.LyricsRomanizeKyrgyzKey
+import com.metrolist.music.constants.LyricsRomanizeMacedonianKey
 import com.metrolist.music.constants.LyricsRomanizeRussianKey
 import com.metrolist.music.constants.LyricsRomanizeSerbianKey
 import com.metrolist.music.constants.LyricsRomanizeUkrainianKey
-import com.metrolist.music.constants.LyricsRomanizeMacedonianKey
 import com.metrolist.music.constants.LyricsScrollKey
 import com.metrolist.music.constants.LyricsTextPositionKey
+import com.metrolist.music.constants.LyricsTextSizeKey
 import com.metrolist.music.constants.PlayerBackgroundStyle
+import com.metrolist.music.constants.OpenRouterApiKey
+import com.metrolist.music.constants.OpenRouterBaseUrlKey
+import com.metrolist.music.constants.OpenRouterModelKey
+import com.metrolist.music.constants.AutoTranslateLyricsKey
+import com.metrolist.music.constants.AutoTranslateLyricsMismatchKey
+import com.metrolist.music.constants.TranslateLanguageKey
+import com.metrolist.music.constants.TranslateModeKey
 import com.metrolist.music.constants.PlayerBackgroundStyleKey
 import com.metrolist.music.db.entities.LyricsEntity.Companion.LYRICS_NOT_FOUND
 import com.metrolist.music.lyrics.LyricsEntry
 import com.metrolist.music.lyrics.LyricsUtils.findCurrentLineIndex
 import com.metrolist.music.lyrics.LyricsUtils.isBelarusian
+import com.metrolist.music.lyrics.LyricsUtils.isBulgarian
 import com.metrolist.music.lyrics.LyricsUtils.isChinese
 import com.metrolist.music.lyrics.LyricsUtils.isJapanese
 import com.metrolist.music.lyrics.LyricsUtils.isKorean
 import com.metrolist.music.lyrics.LyricsUtils.isKyrgyz
+import com.metrolist.music.lyrics.LyricsUtils.isMacedonian
 import com.metrolist.music.lyrics.LyricsUtils.isRussian
 import com.metrolist.music.lyrics.LyricsUtils.isSerbian
-import com.metrolist.music.lyrics.LyricsUtils.isBulgarian
 import com.metrolist.music.lyrics.LyricsUtils.isUkrainian
-import com.metrolist.music.lyrics.LyricsUtils.isMacedonian
 import com.metrolist.music.lyrics.LyricsUtils.parseLyrics
+import com.metrolist.music.lyrics.LyricsUtils.romanizeChinese
 import com.metrolist.music.lyrics.LyricsUtils.romanizeCyrillic
 import com.metrolist.music.lyrics.LyricsUtils.romanizeJapanese
 import com.metrolist.music.lyrics.LyricsUtils.romanizeKorean
 import com.metrolist.music.lyrics.LyricsUtils.romanizeChinese
+import com.metrolist.music.lyrics.LyricsTranslationHelper
+import com.metrolist.music.lyrics.LanguageDetectionHelper
 import com.metrolist.music.ui.component.shimmer.ShimmerHost
 import com.metrolist.music.ui.component.shimmer.TextPlaceholder
 import com.metrolist.music.ui.screens.settings.DarkMode
@@ -177,7 +182,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.time.Duration.Companion.seconds
 
-@RequiresApi(Build.VERSION_CODES.M)
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @SuppressLint("UnusedBoxWithConstraintsScope", "StringFormatInvalid")
 @Composable
@@ -190,10 +194,9 @@ fun Lyrics(
     val menuState = LocalMenuState.current
     val density = LocalDensity.current
     val context = LocalContext.current
-    val configuration = LocalConfiguration.current // Get configuration
-
-    val landscapeOffset =
-        configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val configuration = LocalWindowInfo.current
+    val listenTogetherManager = LocalListenTogetherManager.current
+    val isGuest = listenTogetherManager?.isInRoom == true && !listenTogetherManager.isHost
 
     val lyricsTextPosition by rememberEnumPreference(LyricsTextPositionKey, LyricsPosition.CENTER)
     val changeLyrics by rememberPreference(LyricsClickKey, true)
@@ -213,6 +216,15 @@ fun Lyrics(
     val lyricsAnimationStyle by rememberEnumPreference(LyricsAnimationStyleKey, LyricsAnimationStyle.APPLE)
     val lyricsTextSize by rememberPreference(LyricsTextSizeKey, 24f)
     val lyricsLineSpacing by rememberPreference(LyricsLineSpacingKey, 1.3f)
+    
+    val openRouterApiKey by rememberPreference(OpenRouterApiKey, "")
+    val openRouterBaseUrl by rememberPreference(OpenRouterBaseUrlKey, "https://openrouter.ai/api/v1/chat/completions")
+    val openRouterModel by rememberPreference(OpenRouterModelKey, "mistralai/mistral-small-3.1-24b-instruct:free")
+    val autoTranslateLyrics by rememberPreference(AutoTranslateLyricsKey, false)
+    val autoTranslateLyricsMismatch by rememberPreference(AutoTranslateLyricsMismatchKey, false)
+    val translateLanguage by rememberPreference(TranslateLanguageKey, "en")
+    val translateMode by rememberPreference(TranslateModeKey, "Literal")
+    
     val scope = rememberCoroutineScope()
 
     val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
@@ -246,7 +258,7 @@ fun Lyrics(
             val isMacedonianLyrics = romanizeMacedonianLyrics && !romanizeCyrillicByLine && isMacedonian(lyrics)
 
             parsedLines.map { entry ->
-                val newEntry = LyricsEntry(entry.time, entry.text, entry.words)
+                val newEntry = LyricsEntry(entry.time, entry.text, entry.words, agent = entry.agent, isBackground = entry.isBackground)
                 
                 if (romanizeJapaneseLyrics && isJapanese(entry.text) && !isChinese(entry.text)) {
                     scope.launch {
@@ -392,6 +404,86 @@ fun Lyrics(
         remember(lyrics) {
             !lyrics.isNullOrEmpty() && lyrics.startsWith("[")
         }
+
+    // State for translation status
+    val translationStatus by LyricsTranslationHelper.status.collectAsState()
+    
+    // Track composition lifecycle
+    DisposableEffect(Unit) {
+        LyricsTranslationHelper.setCompositionActive(true)
+        onDispose {
+            LyricsTranslationHelper.setCompositionActive(false)
+            LyricsTranslationHelper.cancelTranslation()
+        }
+    }
+    
+    // Listen for manual trigger
+    LaunchedEffect(showLyrics, lines.size, openRouterApiKey) {
+        LyricsTranslationHelper.manualTrigger.collect {
+             if (showLyrics && lines.isNotEmpty() && openRouterApiKey.isNotBlank()) {
+                 LyricsTranslationHelper.translateLyrics(
+                     lyrics = lines,
+                     targetLanguage = translateLanguage,
+                     apiKey = openRouterApiKey,
+                     baseUrl = openRouterBaseUrl,
+                     model = openRouterModel,
+                     mode = translateMode,
+                     scope = scope,
+                     context = context
+                 )
+             } else if (openRouterApiKey.isBlank()) {
+                 Toast.makeText(context, context.getString(R.string.ai_api_key_required), Toast.LENGTH_SHORT).show()
+             }
+        }
+    }
+
+    LaunchedEffect(lines, autoTranslateLyrics, autoTranslateLyricsMismatch, openRouterApiKey, translateMode, translateLanguage) {
+        if (lines.isNotEmpty()) {
+            // Reset status if auto-translate is disabled
+            if (!autoTranslateLyrics) {
+                LyricsTranslationHelper.resetStatus()
+                return@LaunchedEffect
+            }
+            
+            // First, try to apply cached translations
+            val targetLang = if (autoTranslateLyricsMismatch) java.util.Locale.getDefault().language else translateLanguage
+            val hasCached = LyricsTranslationHelper.applyCachedTranslations(lines, translateMode, targetLang)
+            
+            // If no cache and auto-translate is enabled, translate
+            if (!hasCached && autoTranslateLyrics && openRouterApiKey.isNotBlank()) {
+                val needsTranslation = lines.any { it.translatedTextFlow.value == null && it.text.isNotBlank() }
+                if (needsTranslation) {
+                    var shouldTranslate = true
+                    if (autoTranslateLyricsMismatch) {
+                        try {
+                            val combinedText = lines.take(5).joinToString(" ") { it.text }
+                            val detectedLang = LanguageDetectionHelper.identifyLanguage(combinedText)
+                            val systemLang = java.util.Locale.getDefault().language
+                            
+                            if (detectedLang != null && detectedLang == systemLang) {
+                                shouldTranslate = false
+                            }
+                        } catch (e: Exception) {
+                            timber.log.Timber.e(e, "Language detection failed, proceeding with translation")
+                        }
+                    }
+
+                    if (shouldTranslate) {
+                        LyricsTranslationHelper.translateLyrics(
+                            lyrics = lines,
+                            targetLanguage = targetLang,
+                            apiKey = openRouterApiKey,
+                            baseUrl = openRouterBaseUrl,
+                            model = openRouterModel,
+                            mode = translateMode,
+                            scope = scope,
+                            context = context
+                        )
+                    }
+                }
+            }
+        }
+    }
 
     // Use Material 3 expressive accents and keep glow/text colors unified
     val expressiveAccent = when (playerBackground) {
@@ -609,6 +701,100 @@ fun Lyrics(
             .fillMaxSize()
             .padding(bottom = 12.dp)
     ) {
+        // Status UI for translation
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .zIndex(1f)
+                .padding(top = 56.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            when (val status = translationStatus) {
+                is LyricsTranslationHelper.TranslationStatus.Translating -> {
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer
+                        ),
+                        shape = RoundedCornerShape(16.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            androidx.compose.material3.CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                            Text(
+                                text = stringResource(R.string.ai_translating_lyrics),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                    }
+                }
+                is LyricsTranslationHelper.TranslationStatus.Error -> {
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer
+                        ),
+                        shape = RoundedCornerShape(16.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.error),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onErrorContainer,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                text = status.message,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
+                    }
+                }
+                is LyricsTranslationHelper.TranslationStatus.Success -> {
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.tertiaryContainer
+                        ),
+                        shape = RoundedCornerShape(16.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.check),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                text = stringResource(R.string.ai_lyrics_translated),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer
+                            )
+                        }
+                    }
+                }
+                is LyricsTranslationHelper.TranslationStatus.Idle -> {
+                    // No status display
+                }
+            }
+        }
 
         if (lyrics == LYRICS_NOT_FOUND) {
             Box(
@@ -703,6 +889,9 @@ fun Lyrics(
                     }
                 }
             } else {
+                val lyricsOffset = currentSong?.song?.lyricsOffset?.toLong() ?: 0L
+                val effectivePlaybackPosition = currentPlaybackPosition + lyricsOffset
+
                 itemsIndexed(
                     items = lines,
                     key = { index, item -> "$index-${item.time}" } // Add stable key
@@ -729,7 +918,7 @@ fun Lyrics(
                                             showMaxSelectionToast = true
                                         }
                                     }
-                                } else if (isSynced && changeLyrics) {
+                                } else if (isSynced && changeLyrics && !isGuest) {
                                     // Professional seek action with smooth animation
                                     val lyricsOffset = currentSong?.song?.lyricsOffset ?: 0
                                     playerConnection.seekTo((item.time - lyricsOffset).coerceAtLeast(0))
@@ -781,38 +970,72 @@ fun Lyrics(
                         )
                         .padding(horizontal = 24.dp, vertical = 8.dp)
                     
+                    // Check if this line shares the same time as the currently active line
+                    // This enables synchronized word-by-word animation for both main and background vocals
+                    val currentLineTime = if (displayedCurrentLineIndex >= 0 && displayedCurrentLineIndex < lines.size) {
+                        lines[displayedCurrentLineIndex].time
+                    } else -1L
+                    val isLineAtSameTime = item.time == currentLineTime
+                    val isActiveByIndex = index == displayedCurrentLineIndex
+                    val isActiveByTime = isLineAtSameTime && displayedCurrentLineIndex >= 0
+                    
                     val alpha by animateFloatAsState(
                         targetValue = when {
                             !isSynced || (isSelectionModeActive && isSelected) -> 1f
-                            index == displayedCurrentLineIndex -> 1f
+                            isActiveByIndex || isActiveByTime -> 1f
                             else -> 0.5f
                         },
                         animationSpec = tween(durationMillis = 400)
                     )
                     val scale by animateFloatAsState(
-                        targetValue = if (index == displayedCurrentLineIndex) 1.05f else 1f,
+                        targetValue = if (isActiveByIndex || isActiveByTime) 1.05f else 1f,
                         animationSpec = tween(durationMillis = 400)
                     )
 
-                    Column(
-                        modifier = itemModifier.graphicsLayer {
-                            this.alpha = alpha
-                            this.scaleX = scale
-                            this.scaleY = scale
-                        },
-                        horizontalAlignment = when (lyricsTextPosition) {
+                    // Determine alignment based on agent for multi-singer support
+                    val agentAlignment = when {
+                        item.isBackground -> Alignment.CenterHorizontally // Background always centered
+                        item.agent == "v1" -> Alignment.Start // First vocalist - left
+                        item.agent == "v2" -> Alignment.End // Second vocalist - right
+                        item.agent == "v1000" -> Alignment.CenterHorizontally // Group/chorus - center
+                        else -> when (lyricsTextPosition) {
                             LyricsPosition.LEFT -> Alignment.Start
                             LyricsPosition.CENTER -> Alignment.CenterHorizontally
                             LyricsPosition.RIGHT -> Alignment.End
                         }
-                    ) {
-                        val isActiveLine = index == displayedCurrentLineIndex && isSynced
-                        val lineColor = if (isActiveLine) expressiveAccent else expressiveAccent.copy(alpha = 0.7f)
-                        val alignment = when (lyricsTextPosition) {
+                    }
+                    
+                    val agentTextAlign = when {
+                        item.isBackground -> TextAlign.Center
+                        item.agent == "v1" -> TextAlign.Left
+                        item.agent == "v2" -> TextAlign.Right
+                        item.agent == "v1000" -> TextAlign.Center
+                        else -> when (lyricsTextPosition) {
                             LyricsPosition.LEFT -> TextAlign.Left
                             LyricsPosition.CENTER -> TextAlign.Center
                             LyricsPosition.RIGHT -> TextAlign.Right
                         }
+                    }
+                    
+                    // Smaller scale for background vocals
+                    val bgScale = if (item.isBackground) 0.85f else 1f
+
+                    Column(
+                        modifier = itemModifier.graphicsLayer {
+                            this.alpha = if (item.isBackground) alpha * 0.8f else alpha
+                            this.scaleX = scale * bgScale
+                            this.scaleY = scale * bgScale
+                        },
+                        horizontalAlignment = agentAlignment
+                    ) {
+                        // Use time-based active check to sync both main and background lines with same timestamp
+                        val isActiveLine = (isActiveByIndex || isActiveByTime) && isSynced
+                        val lineColor = if (isActiveLine) {
+                            if (item.isBackground) expressiveAccent.copy(alpha = 0.85f) else expressiveAccent
+                        } else {
+                            expressiveAccent.copy(alpha = if (item.isBackground) 0.5f else 0.7f)
+                        }
+                        val alignment = agentTextAlign
                         
                         val hasWordTimings = item.words?.isNotEmpty() == true
                         
@@ -824,14 +1047,14 @@ fun Lyrics(
                                     val wordEndMs = (word.endTime * 1000).toLong()
                                     val wordDuration = wordEndMs - wordStartMs
 
-                                    val isWordActive = isActiveLine && currentPlaybackPosition >= wordStartMs && currentPlaybackPosition <= wordEndMs
-                                    val hasWordPassed = isActiveLine && currentPlaybackPosition > wordEndMs
+                                    val isWordActive = isActiveLine && effectivePlaybackPosition >= wordStartMs && effectivePlaybackPosition <= wordEndMs
+                                    val hasWordPassed = isActiveLine && effectivePlaybackPosition > wordEndMs
 
                                     val transitionProgress = when {
                                         !isActiveLine -> 0f
                                         hasWordPassed -> 1f
                                         isWordActive && wordDuration > 0 -> {
-                                            val elapsed = currentPlaybackPosition - wordStartMs
+                                            val elapsed = effectivePlaybackPosition - wordStartMs
                                             val linear = (elapsed.toFloat() / wordDuration).coerceIn(0f, 1f)
                                             linear * linear * (3f - 2f * linear)
                                         }
@@ -872,11 +1095,11 @@ fun Lyrics(
                                     val wordEndMs = (word.endTime * 1000).toLong()
                                     val wordDuration = wordEndMs - wordStartMs
 
-                                    val isWordActive = isActiveLine && currentPlaybackPosition >= wordStartMs && currentPlaybackPosition <= wordEndMs
-                                    val hasWordPassed = isActiveLine && currentPlaybackPosition > wordEndMs
+                                    val isWordActive = isActiveLine && effectivePlaybackPosition >= wordStartMs && effectivePlaybackPosition <= wordEndMs
+                                    val hasWordPassed = isActiveLine && effectivePlaybackPosition > wordEndMs
 
                                     val fadeProgress = if (isWordActive && wordDuration > 0) {
-                                        val timeElapsed = currentPlaybackPosition - wordStartMs
+                                        val timeElapsed = effectivePlaybackPosition - wordStartMs
                                         val linear = (timeElapsed.toFloat() / wordDuration.toFloat()).coerceIn(0f, 1f)
                                         // Smooth cubic easing
                                         linear * linear * (3f - 2f * linear)
@@ -929,11 +1152,11 @@ fun Lyrics(
                                     val wordEndMs = (word.endTime * 1000).toLong()
                                     val wordDuration = wordEndMs - wordStartMs
 
-                                    val isWordActive = isActiveLine && currentPlaybackPosition in wordStartMs..wordEndMs
-                                    val hasWordPassed = isActiveLine && currentPlaybackPosition > wordEndMs
+                                    val isWordActive = isActiveLine && effectivePlaybackPosition in wordStartMs..wordEndMs
+                                    val hasWordPassed = isActiveLine && effectivePlaybackPosition > wordEndMs
 
                                     val fillProgress = if (isWordActive && wordDuration > 0) {
-                                        val linear = ((currentPlaybackPosition - wordStartMs).toFloat() / wordDuration).coerceIn(0f, 1f)
+                                        val linear = ((effectivePlaybackPosition - wordStartMs).toFloat() / wordDuration).coerceIn(0f, 1f)
                                         linear * linear * (3f - 2f * linear)
                                     } else if (hasWordPassed) 1f else 0f
 
@@ -976,11 +1199,11 @@ fun Lyrics(
                                     val wordEndMs = (word.endTime * 1000).toLong()
                                     val wordDuration = wordEndMs - wordStartMs
 
-                                    val isWordActive = isActiveLine && currentPlaybackPosition >= wordStartMs && currentPlaybackPosition < wordEndMs
-                                    val hasWordPassed = (isActiveLine && currentPlaybackPosition >= wordEndMs) || (!isActiveLine && index < displayedCurrentLineIndex)
+                                    val isWordActive = isActiveLine && effectivePlaybackPosition >= wordStartMs && effectivePlaybackPosition < wordEndMs
+                                    val hasWordPassed = (isActiveLine && effectivePlaybackPosition >= wordEndMs) || (!isActiveLine && item.time < currentLineTime)
 
                                     if (isWordActive && wordDuration > 0) {
-                                        val timeElapsed = currentPlaybackPosition - wordStartMs
+                                        val timeElapsed = effectivePlaybackPosition - wordStartMs
                                         val fillProgress = (timeElapsed.toFloat() / wordDuration.toFloat()).coerceIn(0f, 1f)
                                         val breatheValue = (timeElapsed % 3000) / 3000f
                                         val breatheEffect = (kotlin.math.sin(breatheValue * Math.PI.toFloat() * 2f) * 0.03f).coerceIn(0f, 0.03f)
@@ -1027,11 +1250,11 @@ fun Lyrics(
                                     val wordEndMs = (word.endTime * 1000).toLong()
                                     val wordDuration = wordEndMs - wordStartMs
 
-                                    val isWordActive = isActiveLine && currentPlaybackPosition >= wordStartMs && currentPlaybackPosition < wordEndMs
-                                    val hasWordPassed = (isActiveLine && currentPlaybackPosition >= wordEndMs) || (!isActiveLine && index < displayedCurrentLineIndex)
+                                    val isWordActive = isActiveLine && effectivePlaybackPosition >= wordStartMs && effectivePlaybackPosition < wordEndMs
+                                    val hasWordPassed = (isActiveLine && effectivePlaybackPosition >= wordEndMs) || (!isActiveLine && item.time < currentLineTime)
 
                                     if (isWordActive && wordDuration > 0) {
-                                        val timeElapsed = currentPlaybackPosition - wordStartMs
+                                        val timeElapsed = effectivePlaybackPosition - wordStartMs
                                         val linearProgress = (timeElapsed.toFloat() / wordDuration.toFloat()).coerceIn(0f, 1f)
                                         // Smoother easing curve for more natural fill animation
                                         val fillProgress = linearProgress * linearProgress * (3f - 2f * linearProgress)
@@ -1094,11 +1317,11 @@ fun Lyrics(
                                     val wordEndMs = (word.endTime * 1000).toLong()
                                     val wordDuration = wordEndMs - wordStartMs
 
-                                    val isWordActive = isActiveLine && currentPlaybackPosition >= wordStartMs && currentPlaybackPosition < wordEndMs
-                                    val hasWordPassed = (isActiveLine && currentPlaybackPosition >= wordEndMs) || (!isActiveLine && index < displayedCurrentLineIndex)
+                                    val isWordActive = isActiveLine && effectivePlaybackPosition >= wordStartMs && effectivePlaybackPosition < wordEndMs
+                                    val hasWordPassed = (isActiveLine && effectivePlaybackPosition >= wordEndMs) || (!isActiveLine && item.time < currentLineTime)
 
                                     val rawProgress = if (isWordActive && wordDuration > 0) {
-                                        val elapsed = currentPlaybackPosition - wordStartMs
+                                        val elapsed = effectivePlaybackPosition - wordStartMs
                                         (elapsed.toFloat() / wordDuration).coerceIn(0f, 1f)
                                     } else if (hasWordPassed) 1f else 0f
 
@@ -1270,6 +1493,25 @@ fun Lyrics(
                                     },
                                     fontWeight = FontWeight.Normal,
                                     modifier = Modifier.padding(top = 2.dp)
+                                )
+                            }
+                        }
+                        
+                        // Show translated text if available
+                        if (autoTranslateLyrics || openRouterApiKey.isNotBlank()) {
+                            val translatedText by item.translatedTextFlow.collectAsState()
+                            translatedText?.let { translated ->
+                                Text(
+                                    text = translated,
+                                    fontSize = 16.sp,
+                                    color = expressiveAccent.copy(alpha = 0.5f),
+                                    textAlign = when (lyricsTextPosition) {
+                                        LyricsPosition.LEFT -> TextAlign.Left
+                                        LyricsPosition.CENTER -> TextAlign.Center
+                                        LyricsPosition.RIGHT -> TextAlign.Right
+                                    },
+                                    fontWeight = FontWeight.Normal,
+                                    modifier = Modifier.padding(top = 4.dp)
                                 )
                             }
                         }
@@ -1489,7 +1731,7 @@ fun Lyrics(
         val coverUrl = mediaMetadata?.thumbnailUrl
         val paletteColors = remember { mutableStateListOf<Color>() }
 
-        val previewCardWidth = configuration.screenWidthDp.dp * 0.90f
+        val previewCardWidth = configuration.containerDpSize.width * 0.90f
         val previewPadding = 20.dp * 2
         val previewBoxPadding = 28.dp * 2
         val previewAvailableWidth = previewCardWidth - previewPadding - previewBoxPadding
@@ -1645,8 +1887,8 @@ fun Lyrics(
                             showProgressDialog = true
                             scope.launch {
                                 try {
-                                    val screenWidth = configuration.screenWidthDp
-                                    val screenHeight = configuration.screenHeightDp
+                                    val screenWidth = configuration.containerSize.width
+                                    val screenHeight = configuration.containerSize.height
 
                                     val image = ComposeToImage.createLyricsImage(
                                         context = context,

@@ -10,34 +10,28 @@ import android.content.res.Configuration
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.ListItem
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -46,8 +40,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -74,6 +68,7 @@ import coil3.compose.AsyncImage
 import com.metrolist.innertube.YouTube
 import com.metrolist.music.LocalDatabase
 import com.metrolist.music.LocalDownloadUtil
+import com.metrolist.music.LocalListenTogetherManager
 import com.metrolist.music.LocalPlayerConnection
 import com.metrolist.music.LocalSyncUtils
 import com.metrolist.music.R
@@ -83,23 +78,20 @@ import com.metrolist.music.db.entities.ArtistEntity
 import com.metrolist.music.db.entities.Event
 import com.metrolist.music.db.entities.PlaylistSong
 import com.metrolist.music.db.entities.Song
-import com.metrolist.music.db.entities.SongArtistMap
-import com.metrolist.music.db.MusicDatabase
 import com.metrolist.music.extensions.toMediaItem
 import com.metrolist.music.models.toMediaMetadata
 import com.metrolist.music.playback.ExoDownloadService
 import com.metrolist.music.playback.queues.YouTubeQueue
 import com.metrolist.music.ui.component.ListDialog
 import com.metrolist.music.ui.component.LocalBottomSheetPageState
-import com.metrolist.music.ui.component.Material3MenuItemData
 import com.metrolist.music.ui.component.Material3MenuGroup
+import com.metrolist.music.ui.component.Material3MenuItemData
 import com.metrolist.music.ui.component.NewAction
 import com.metrolist.music.ui.component.NewActionGrid
 import com.metrolist.music.ui.component.SongListItem
 import com.metrolist.music.ui.component.TextFieldDialog
 import com.metrolist.music.ui.utils.ShowMediaInfo
 import com.metrolist.music.viewmodels.CachePlaylistViewModel
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -123,6 +115,7 @@ fun SongMenu(
         .collectAsState(initial = null)
     val coroutineScope = rememberCoroutineScope()
     val syncUtils = LocalSyncUtils.current
+    val listenTogetherManager = LocalListenTogetherManager.current
     val scope = rememberCoroutineScope()
     var refetchIconDegree by remember { mutableFloatStateOf(0f) }
 
@@ -332,6 +325,8 @@ fun SongMenu(
     val configuration = LocalConfiguration.current
     val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT
 
+    val isGuest = listenTogetherManager?.isInRoom == true && !listenTogetherManager.isHost
+
     LazyColumn(
         contentPadding = PaddingValues(
             start = 0.dp,
@@ -393,49 +388,79 @@ fun SongMenu(
         }
         item {
             Material3MenuGroup(
-                items = listOf(
-                    Material3MenuItemData(
-                        title = { Text(text = stringResource(R.string.start_radio)) },
-                        description = { Text(text = stringResource(R.string.start_radio_desc)) },
-                        icon = {
-                            Icon(
-                                painter = painterResource(R.drawable.radio),
-                                contentDescription = null,
-                            )
-                        },
-                        onClick = {
-                            onDismiss()
-                            playerConnection.playQueue(YouTubeQueue.radio(song.toMediaMetadata()))
-                        }
-                    ),
-                    Material3MenuItemData(
-                        title = { Text(text = stringResource(R.string.play_next)) },
-                        description = { Text(text = stringResource(R.string.play_next_desc)) },
-                        icon = {
-                            Icon(
-                                painter = painterResource(R.drawable.playlist_play),
-                                contentDescription = null,
-                            )
-                        },
-                        onClick = {
-                            onDismiss()
-                            playerConnection.playNext(song.toMediaItem())
-                        }
-                    ),
-                    Material3MenuItemData(
-                        title = { Text(text = stringResource(R.string.add_to_queue)) },
-                        description = { Text(text = stringResource(R.string.add_to_queue_desc)) },
-                        icon = {
-                            Icon(
-                                painter = painterResource(R.drawable.queue_music),
-                                contentDescription = null,
-                            )
-                        },
-                        onClick = {
-                            onDismiss()
-                            playerConnection.addToQueue(song.toMediaItem())
-                        }
-                    )
+                items = listOfNotNull(
+                    if (listenTogetherManager != null && listenTogetherManager.isInRoom && !listenTogetherManager.isHost) {
+                        Material3MenuItemData(
+                            title = { Text(text = stringResource(R.string.suggest_to_host)) },
+                            icon = {
+                                Icon(
+                                    painter = painterResource(R.drawable.queue_music),
+                                    contentDescription = null,
+                                )
+                            },
+                            onClick = {
+                                val durationMs = if (song.song.duration > 0) song.song.duration.toLong() * 1000 else 180000L
+                                val trackInfo = com.metrolist.music.listentogether.TrackInfo(
+                                    id = song.id,
+                                    title = song.song.title,
+                                    artist = orderedArtists.joinToString(", ") { it.name },
+                                    album = song.song.albumName,
+                                    duration = durationMs,
+                                    thumbnail = song.thumbnailUrl
+                                )
+                                listenTogetherManager.suggestTrack(trackInfo)
+                                onDismiss()
+                            }
+                        )
+                    } else null,
+                    if (!isGuest) {
+                        Material3MenuItemData(
+                            title = { Text(text = stringResource(R.string.start_radio)) },
+                            description = { Text(text = stringResource(R.string.start_radio_desc)) },
+                            icon = {
+                                Icon(
+                                    painter = painterResource(R.drawable.radio),
+                                    contentDescription = null,
+                                )
+                            },
+                            onClick = {
+                                onDismiss()
+                                playerConnection.playQueue(YouTubeQueue.radio(song.toMediaMetadata()))
+                            }
+                        )
+                    } else null,
+                    if (!isGuest) {
+                        Material3MenuItemData(
+                            title = { Text(text = stringResource(R.string.play_next)) },
+                            description = { Text(text = stringResource(R.string.play_next_desc)) },
+                            icon = {
+                                Icon(
+                                    painter = painterResource(R.drawable.playlist_play),
+                                    contentDescription = null,
+                                )
+                            },
+                            onClick = {
+                                onDismiss()
+                                playerConnection.playNext(song.toMediaItem())
+                            }
+                        )
+                    } else null,
+                    if (!isGuest) {
+                        Material3MenuItemData(
+                            title = { Text(text = stringResource(R.string.add_to_queue)) },
+                            description = { Text(text = stringResource(R.string.add_to_queue_desc)) },
+                            icon = {
+                                Icon(
+                                    painter = painterResource(R.drawable.queue_music),
+                                    contentDescription = null,
+                                )
+                            },
+                            onClick = {
+                                onDismiss()
+                                playerConnection.addToQueue(song.toMediaItem())
+                            }
+                        )
+                    } else null
                 )
             )
         }

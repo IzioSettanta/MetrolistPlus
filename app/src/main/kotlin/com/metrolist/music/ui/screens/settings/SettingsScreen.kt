@@ -7,18 +7,16 @@ package com.metrolist.music.ui.screens.settings
 
 import android.content.ActivityNotFoundException
 import android.content.Intent
-import android.net.Uri
-import androidx.core.net.toUri
 import android.os.Build
 import android.provider.Settings
 import android.widget.Toast
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsetsSides
-import androidx.compose.foundation.layout.only
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -29,6 +27,7 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import androidx.navigation.NavController
 import com.metrolist.music.BuildConfig
 import com.metrolist.music.LocalPlayerAwareWindowInsets
@@ -92,6 +91,11 @@ fun SettingsScreen(
                     icon = painterResource(R.drawable.language),
                     title = { Text(stringResource(R.string.content)) },
                     onClick = { navController.navigate("settings/content") }
+                ),
+                Material3SettingsItem(
+                    icon = painterResource(R.drawable.translate),
+                    title = { Text(stringResource(R.string.ai_lyrics_translation)) },
+                    onClick = { navController.navigate("settings/ai") }
                 )
             )
         )
@@ -194,25 +198,30 @@ fun SettingsScreen(
                     )
                 )
                 if (latestVersionName != BuildConfig.VERSION_NAME) {
-                    add(
-                        Material3SettingsItem(
-                            icon = painterResource(R.drawable.update),
-                            title = { 
-                                Text(
-                                    text = stringResource(R.string.new_version_available),
-                                )
-                            },
-                            description = {
-                                Text(
-                                    text = latestVersionName,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            },
-                            showBadge = true,
-                            onClick = { uriHandler.openUri(Updater.getLatestDownloadUrl()) }
+                    val releaseInfo = Updater.getCachedLatestRelease()
+                    val downloadUrl = releaseInfo?.let { Updater.getDownloadUrlForCurrentVariant(it) }
+                    
+                    if (downloadUrl != null) {
+                        add(
+                            Material3SettingsItem(
+                                icon = painterResource(R.drawable.update),
+                                title = { 
+                                    Text(
+                                        text = stringResource(R.string.new_version_available),
+                                    )
+                                },
+                                description = {
+                                    Text(
+                                        text = latestVersionName,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                },
+                                showBadge = true,
+                                onClick = { uriHandler.openUri(downloadUrl) }
+                            )
                         )
-                    )
+                    }
                 }
             }
         )
@@ -237,7 +246,6 @@ fun SettingsScreen(
                     contentDescription = null
                 )
             }
-        },
-        scrollBehavior = scrollBehavior
+        }
     )
 }

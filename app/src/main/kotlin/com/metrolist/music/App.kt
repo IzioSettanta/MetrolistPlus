@@ -30,8 +30,8 @@ import com.metrolist.music.constants.*
 import com.metrolist.music.di.ApplicationScope
 import com.metrolist.music.extensions.toEnum
 import com.metrolist.music.extensions.toInetSocketAddress
+import com.metrolist.music.utils.CrashHandler
 import com.metrolist.music.utils.dataStore
-import com.metrolist.music.utils.get
 import com.metrolist.music.utils.reportException
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
@@ -59,6 +59,10 @@ class App : Application(), SingletonImageLoader.Factory {
 
     override fun onCreate() {
         super.onCreate()
+        
+        // Install crash handler first
+        CrashHandler.install(this)
+        
         Timber.plant(Timber.DebugTree())
 
         // تهيئة إعدادات التطبيق عند الإقلاع
@@ -122,17 +126,15 @@ class App : Application(), SingletonImageLoader.Factory {
 
         YouTube.useLoginForBrowse = settings[UseLoginForBrowse] ?: true
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                "updates",
-                getString(R.string.update_channel_name),
-                NotificationManager.IMPORTANCE_DEFAULT
-            ).apply {
-                description = getString(R.string.update_channel_desc)
-            }
-            val nm = getSystemService(NotificationManager::class.java)
-            nm.createNotificationChannel(channel)
+        val channel = NotificationChannel(
+            "updates",
+            getString(R.string.update_channel_name),
+            NotificationManager.IMPORTANCE_DEFAULT
+        ).apply {
+            description = getString(R.string.update_channel_desc)
         }
+        val nm = getSystemService(NotificationManager::class.java)
+        nm.createNotificationChannel(channel)
     }
 
     private fun observeSettingsChanges() {

@@ -14,7 +14,9 @@ import java.time.LocalDateTime
 import java.time.ZoneOffset
 
 val EnableDynamicIconKey = booleanPreferencesKey("enableDynamicIcon")
+val EnableHighRefreshRateKey = booleanPreferencesKey("enableHighRefreshRate")
 val DynamicThemeKey = booleanPreferencesKey("dynamicTheme")
+val SelectedThemeColorKey = intPreferencesKey("selectedThemeColor")
 val DarkModeKey = stringPreferencesKey("darkMode")
 val PureBlackKey = booleanPreferencesKey("pureBlack")
 val PureBlackMiniPlayerKey = booleanPreferencesKey("pureBlackMiniPlayer")
@@ -63,6 +65,7 @@ val YtmSyncKey = booleanPreferencesKey("ytmSync")
 val SelectedYtmPlaylistsKey = stringPreferencesKey("selectedYtmPlaylists")
 val CheckForUpdatesKey = booleanPreferencesKey("checkForUpdates")
 val UpdateNotificationsEnabledKey = booleanPreferencesKey("updateNotifications")
+val LastUpdateCheckTimeKey = longPreferencesKey("lastUpdateCheckTime")
 
 val AudioQualityKey = stringPreferencesKey("audioQuality")
 
@@ -88,6 +91,9 @@ val SimilarContent = booleanPreferencesKey("similarContent")
 val AutoSkipNextOnErrorKey = booleanPreferencesKey("autoSkipNextOnError")
 val StopMusicOnTaskClearKey = booleanPreferencesKey("stopMusicOnTaskClear")
 val ShufflePlaylistFirstKey = booleanPreferencesKey("shufflePlaylistFirst")
+val CrossfadeEnabledKey = booleanPreferencesKey("crossfadeEnabled")
+val CrossfadeDurationKey = floatPreferencesKey("crossfadeDuration")
+val CrossfadeGaplessKey = booleanPreferencesKey("crossfadeGapless")
 
 val MaxImageCacheSizeKey = intPreferencesKey("maxImageCacheSize")
 val MaxSongCacheSizeKey = intPreferencesKey("maxSongCacheSize")
@@ -105,6 +111,20 @@ val DiscordUseDetailsKey = booleanPreferencesKey("discordUseDetails")
 
 // Google Cast
 val EnableGoogleCastKey = booleanPreferencesKey("enableGoogleCast")
+
+// Listen Together
+val ListenTogetherServerUrlKey = stringPreferencesKey("listenTogetherServerUrl")
+val ListenTogetherUsernameKey = stringPreferencesKey("listenTogetherUsername")
+val EnableListenTogetherKey = booleanPreferencesKey("enableListenTogether")
+val ListenTogetherAutoApprovalKey = booleanPreferencesKey("listenTogetherAutoApproval")
+val ListenTogetherSyncVolumeKey = booleanPreferencesKey("listenTogetherSyncVolume")
+val ListenTogetherBlockedUsersKey = stringPreferencesKey("listenTogetherBlockedUsers")
+// Session persistence for reconnection
+val ListenTogetherSessionTokenKey = stringPreferencesKey("listenTogetherSessionToken")
+val ListenTogetherRoomCodeKey = stringPreferencesKey("listenTogetherRoomCode")
+val ListenTogetherUserIdKey = stringPreferencesKey("listenTogetherUserId")
+val ListenTogetherIsHostKey = booleanPreferencesKey("listenTogetherIsHost")
+val ListenTogetherSessionTimestampKey = longPreferencesKey("listenTogetherSessionTimestamp")
 
 val LastFMSessionKey = stringPreferencesKey("lastfmSession")
 val LastFMUsernameKey = stringPreferencesKey("lastfmUsername")
@@ -348,6 +368,14 @@ val LyricsRomanizeKyrgyzKey = booleanPreferencesKey("lyricsRomanizeKyrgyz")
 val LyricsRomanizeMacedonianKey = booleanPreferencesKey("lyricsRomanizeMacedonian")
 val LyricsRomanizeCyrillicByLineKey = booleanPreferencesKey("lyricsRomanizeCyrillicByLine")
 val TranslateLyricsKey = booleanPreferencesKey("translateLyrics")
+val OpenRouterApiKey = stringPreferencesKey("openRouterApiKey")
+val AiProviderKey = stringPreferencesKey("aiProvider")
+val OpenRouterBaseUrlKey = stringPreferencesKey("openRouterBaseUrl")
+val OpenRouterModelKey = stringPreferencesKey("openRouterModel")
+val AutoTranslateLyricsKey = booleanPreferencesKey("autoTranslateLyrics")
+val AutoTranslateLyricsMismatchKey = booleanPreferencesKey("autoTranslateLyricsMismatch")
+val TranslateModeKey = stringPreferencesKey("translateMode")
+val TranslateLanguageKey = stringPreferencesKey("translateLanguage")
 val LyricsGlowEffectKey = booleanPreferencesKey("lyricsGlowEffect")
 
 val LyricsAnimationStyleKey = stringPreferencesKey("lyricsAnimationStyle")

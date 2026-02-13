@@ -49,18 +49,18 @@ import com.metrolist.music.ui.screens.settings.PrivacySettings
 import com.metrolist.music.ui.screens.settings.RomanizationSettings
 import com.metrolist.music.ui.screens.settings.SettingsScreen
 import com.metrolist.music.ui.screens.settings.StorageSettings
+import com.metrolist.music.ui.screens.settings.ThemeScreen
 import com.metrolist.music.ui.screens.settings.UpdaterScreen
+import com.metrolist.music.ui.screens.settings.AiSettings
 import com.metrolist.music.ui.screens.settings.integrations.DiscordSettings
 import com.metrolist.music.ui.screens.settings.integrations.IntegrationScreen
 import com.metrolist.music.ui.screens.settings.integrations.LastFMSettings
+import com.metrolist.music.ui.screens.settings.integrations.ListenTogetherSettings
+import com.metrolist.music.ui.screens.recognition.RecognitionScreen
+import com.metrolist.music.ui.screens.recognition.RecognitionHistoryScreen
 import com.metrolist.music.ui.screens.wrapped.WrappedScreen
 import com.metrolist.music.utils.rememberEnumPreference
 import com.metrolist.music.utils.rememberPreference
-import com.metrolist.music.ui.screens.search.VoiceSearchScreen
-
-
-// Importa qui la tua schermata di ricerca vocale se si trova in un altro package
-// import com.metrolist.music.ui.screens.search.VoiceSearchScreen
 
 @OptIn(ExperimentalMaterial3Api::class)
 fun NavGraphBuilder.navigationBuilder(
@@ -94,10 +94,8 @@ fun NavGraphBuilder.navigationBuilder(
         LibraryScreen(navController)
     }
 
-    // Registrazione della rotta Voice Search per evitare il crash
-    composable(Screens.VoiceSearch.route) {
-        // Assicurati che il nome del Composable coincida con quello che hai creato
-        VoiceSearchScreen(navController = navController)
+    composable(Screens.ListenTogether.route) {
+        ListenTogetherScreen(navController)
     }
 
     composable("history") {
@@ -312,6 +310,10 @@ fun NavGraphBuilder.navigationBuilder(
         AppearanceSettings(navController, scrollBehavior, activity, snackbarHostState)
     }
 
+    composable("settings/appearance/theme") {
+        ThemeScreen(navController)
+    }
+
     composable("settings/content") {
         ContentSettings(navController, scrollBehavior)
     }
@@ -320,6 +322,10 @@ fun NavGraphBuilder.navigationBuilder(
         RomanizationSettings(navController, scrollBehavior)
     }
 
+    composable("settings/ai") {
+        AiSettings(navController, scrollBehavior)
+    }
+    
     composable("settings/player") {
         PlayerSettings(navController, scrollBehavior)
     }
@@ -348,6 +354,10 @@ fun NavGraphBuilder.navigationBuilder(
         LastFMSettings(navController, scrollBehavior)
     }
 
+    composable(route = "settings/integrations/listen_together") {
+        ListenTogetherSettings(navController, scrollBehavior)
+    }
+
     composable("settings/discord/login") {
         DiscordLoginScreen(navController)
     }
@@ -370,5 +380,13 @@ fun NavGraphBuilder.navigationBuilder(
 
     dialog("equalizer") {
         EqScreen()
+    }
+
+    composable("recognition") {
+        RecognitionScreen(navController)
+    }
+
+    composable("recognition_history") {
+        RecognitionHistoryScreen(navController)
     }
 }

@@ -31,6 +31,13 @@ sealed class Screens(
         route = "search_input"
     )
 
+    object ListenTogether : Screens(
+        titleId = R.string.together,
+        iconIdInactive = R.drawable.group,
+        iconIdActive = R.drawable.group,
+        route = "listen_together"
+    )
+
     object Library : Screens(
         titleId = R.string.filter_library,
         iconIdInactive = R.drawable.library_music_outlined,
@@ -38,20 +45,7 @@ sealed class Screens(
         route = "library"
     )
 
-    // Aggiungi qui l'oggetto VoiceSearch
-    object VoiceSearch : Screens(
-        titleId = R.string.voice_search, // Assicurati di aver definito questa stringa in strings.xml
-        iconIdInactive = R.drawable.ic_mic, // Assicurati di aver aggiunto questa drawable
-        iconIdActive = R.drawable.ic_mic,   // Assicurati di aver aggiunto questa drawable
-        route = "voice_search"
-    )
-
     companion object {
-        // Modificato: VoiceSearch ora fa parte di MainScreens, posizionata dove desideri che appaia.
-        // Ad esempio, se vuoi che sia l'ultima icona della navigazione principale:
-        val MainScreens = listOf(Home, VoiceSearch, Search, Library )
-        // Se vuoi che sia la prima dopo Home e prima di Search:
-        // val MainScreens = listOf(Home, VoiceSearch, Search, Library)
-        // Per il tuo caso "insieme agli altri pulsanti in basso", la metterei in fondo come ultima.
+        val MainScreens = listOf(Home, Search, ListenTogether, Library)
     }
 }

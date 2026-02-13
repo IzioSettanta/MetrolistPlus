@@ -5,7 +5,6 @@
 
 package com.metrolist.music.ui.component
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -20,25 +19,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.runtime.derivedStateOf
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.ime
-import androidx.compose.animation.core.animateIntAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.runtime.getValue
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialogDefaults
-import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
@@ -56,7 +42,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -69,7 +54,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.compose.ui.window.Popup
 import androidx.navigation.NavController
 import com.metrolist.music.R
 import com.metrolist.music.ui.screens.settings.AccountSettings
@@ -202,68 +186,47 @@ fun ActionPromptDialog(
     onCancel: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit = {}
 ) {
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
-    ) {
-        Surface(
-            modifier = Modifier.padding(24.dp),
-            shape = AlertDialogDefaults.shape,
-            color = AlertDialogDefaults.containerColor,
-            tonalElevation = AlertDialogDefaults.TonalElevation,
-        ) {
-            Column(
-                modifier = Modifier.padding(24.dp)
-            ) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    // title
-                    if (titleBar != null) {
-                        Row {
-                            titleBar()
-                        }
-                    } else if (title != null) {
-                        Text(
-                            text = title,
-                            overflow = TextOverflow.Ellipsis,
-                            maxLines = 1,
-                            style = MaterialTheme.typography.headlineSmall,
-                        )
-                        Spacer(Modifier.height(16.dp))
-                    }
-
-                    content() // body
-                }
-
-                Row(
-                    horizontalArrangement = Arrangement.End,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    if (onReset != null) {
-                        Row(modifier = Modifier.weight(1f)) {
-                            TextButton(
-                                onClick = { onReset() },
-                            ) {
-                                Text(stringResource(R.string.reset))
-                            }
-                        }
-                    }
-
-                    if (onCancel != null) {
-                        TextButton(
-                            onClick = { onCancel() }
-                        ) {
-                            Text(stringResource(android.R.string.cancel))
-                        }
-                    }
-
+    DefaultDialog(
+        onDismiss = onDismiss,
+        title = if (titleBar != null) {
+            { Row { titleBar() } }
+        } else if (title != null) {
+            {
+                Text(
+                    text = title,
+                    overflow = TextOverflow.Ellipsis,
+                    maxLines = 1,
+                    style = MaterialTheme.typography.headlineSmall,
+                )
+            }
+        } else null,
+        buttons = {
+            if (onReset != null) {
+                Row(modifier = Modifier.weight(1f)) {
                     TextButton(
-                        onClick = { onConfirm() }
+                        onClick = { onReset() },
                     ) {
-                        Text(stringResource(android.R.string.ok))
+                        Text(stringResource(R.string.reset))
                     }
                 }
             }
+
+            if (onCancel != null) {
+                TextButton(
+                    onClick = { onCancel() }
+                ) {
+                    Text(stringResource(android.R.string.cancel))
+                }
+            }
+
+            TextButton(
+                onClick = { onConfirm() }
+            ) {
+                Text(stringResource(android.R.string.ok))
+            }
         }
+    ) {
+        content()
     }
 }
 

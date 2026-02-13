@@ -5,17 +5,10 @@
 
 package com.metrolist.music.ui.screens.settings
 
-import android.annotation.TargetApi
-import android.content.Context
 import android.content.Intent
-import android.content.res.Configuration
 import android.os.Build
 import android.provider.Settings
-import android.os.LocaleList
-import android.util.Log
-import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
-import androidx.core.net.toUri
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -23,6 +16,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -38,33 +32,54 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
-import androidx.compose.foundation.layout.size
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.capitalize
-import androidx.compose.ui.text.toLowerCase
 import androidx.compose.ui.unit.dp
-import androidx.datastore.preferences.core.booleanPreferencesKey
-import androidx.datastore.preferences.core.floatPreferencesKey
-import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.core.net.toUri
 import androidx.navigation.NavController
-import com.metrolist.innertube.YouTube
 import com.metrolist.music.LocalPlayerAwareWindowInsets
 import com.metrolist.music.R
-import com.metrolist.music.constants.*
+import com.metrolist.music.constants.AppLanguageKey
+import com.metrolist.music.constants.ContentCountryKey
+import com.metrolist.music.constants.ContentLanguageKey
+import com.metrolist.music.constants.CountryCodeToName
+import com.metrolist.music.constants.EnableBetterLyricsKey
+import com.metrolist.music.constants.EnableKugouKey
+import com.metrolist.music.constants.EnableLrcLibKey
+import com.metrolist.music.constants.EnableSimpMusicKey
+import com.metrolist.music.constants.HideExplicitKey
+import com.metrolist.music.constants.HideVideoSongsKey
+import com.metrolist.music.constants.LanguageCodeToName
+import com.metrolist.music.constants.PreferredLyricsProvider
+import com.metrolist.music.constants.PreferredLyricsProviderKey
+import com.metrolist.music.constants.ProxyEnabledKey
+import com.metrolist.music.constants.ProxyPasswordKey
+import com.metrolist.music.constants.ProxyTypeKey
+import com.metrolist.music.constants.ProxyUrlKey
+import com.metrolist.music.constants.ProxyUsernameKey
+import com.metrolist.music.constants.QuickPicks
+import com.metrolist.music.constants.QuickPicksKey
+import com.metrolist.music.constants.SYSTEM_DEFAULT
+import com.metrolist.music.constants.ShowArtistDescriptionKey
+import com.metrolist.music.constants.ShowArtistSubscriberCountKey
+import com.metrolist.music.constants.ShowMonthlyListenersKey
+import com.metrolist.music.constants.ShowWrappedCardKey
+import com.metrolist.music.constants.TopSize
 import com.metrolist.music.ui.component.EnumDialog
 import com.metrolist.music.ui.component.IconButton
 import com.metrolist.music.ui.component.Material3SettingsGroup
@@ -72,9 +87,7 @@ import com.metrolist.music.ui.component.Material3SettingsItem
 import com.metrolist.music.ui.utils.backToMain
 import com.metrolist.music.utils.rememberEnumPreference
 import com.metrolist.music.utils.rememberPreference
-import com.metrolist.music.utils.setAppLocale
 import java.net.Proxy
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -112,6 +125,31 @@ fun ContentSettings(
     val (lengthTop, onLengthTopChange) = rememberPreference(key = TopSize, defaultValue = "50")
     val (quickPicks, onQuickPicksChange) = rememberEnumPreference(key = QuickPicksKey, defaultValue = QuickPicks.QUICK_PICKS)
     val (showWrappedCard, onShowWrappedCardChange) = rememberPreference(key = ShowWrappedCardKey, defaultValue = false)
+
+    // Auto-switch preferred provider if current one is disabled
+    LaunchedEffect(enableLrclib, enableKugou, enableBetterLyrics, enableSimpMusic, preferredProvider) {
+        val isPreferredProviderEnabled = when (preferredProvider) {
+            PreferredLyricsProvider.LRCLIB -> enableLrclib
+            PreferredLyricsProvider.KUGOU -> enableKugou
+            PreferredLyricsProvider.BETTER_LYRICS -> enableBetterLyrics
+            PreferredLyricsProvider.SIMPMUSIC -> enableSimpMusic
+        }
+        
+        if (!isPreferredProviderEnabled) {
+            val firstEnabledProvider = PreferredLyricsProvider.values().firstOrNull { provider ->
+                when (provider) {
+                    PreferredLyricsProvider.LRCLIB -> enableLrclib
+                    PreferredLyricsProvider.KUGOU -> enableKugou
+                    PreferredLyricsProvider.BETTER_LYRICS -> enableBetterLyrics
+                    PreferredLyricsProvider.SIMPMUSIC -> enableSimpMusic
+                }
+            }
+            firstEnabledProvider?.let { onPreferredProviderChange(it) }
+        }
+    }
+
+    // Calculate enabled providers count for UI logic
+    val enabledProvidersCount = listOf(enableLrclib, enableKugou, enableBetterLyrics, enableSimpMusic).count { it }
 
     var showProxyConfigurationDialog by rememberSaveable {
         mutableStateOf(false)
@@ -309,7 +347,14 @@ fun ContentSettings(
             },
             title = stringResource(R.string.set_first_lyrics_provider),
             current = preferredProvider,
-            values = PreferredLyricsProvider.values().toList(),
+            values = PreferredLyricsProvider.values().toList().filter { provider ->
+                when (provider) {
+                    PreferredLyricsProvider.LRCLIB -> enableLrclib
+                    PreferredLyricsProvider.KUGOU -> enableKugou
+                    PreferredLyricsProvider.BETTER_LYRICS -> enableBetterLyrics
+                    PreferredLyricsProvider.SIMPMUSIC -> enableSimpMusic
+                }
+            },
             valueText = {
                 when (it) {
                     PreferredLyricsProvider.LRCLIB -> "LrcLib"
@@ -349,7 +394,7 @@ fun ContentSettings(
     }
 
     if (showTopLengthDialog) {
-        var tempLength by rememberSaveable { mutableStateOf(lengthTop.toFloat()) }
+        var tempLength by rememberSaveable { mutableFloatStateOf(lengthTop.toFloat()) }
 
         AlertDialog(
             onDismissRequest = { showTopLengthDialog = false },
@@ -694,7 +739,12 @@ fun ContentSettings(
                             }
                         )
                     },
-                    onClick = { showPreferredProviderDialog = true }
+                    onClick = { 
+                        if (enabledProvidersCount >= 2) {
+                            showPreferredProviderDialog = true
+                        }
+                    },
+                    enabled = enabledProvidersCount >= 2
                 ),
                 Material3SettingsItem(
                     icon = painterResource(R.drawable.language_korean_latin),

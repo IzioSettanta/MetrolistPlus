@@ -7,10 +7,8 @@
 
 package com.metrolist.music.ui.component
 
-import android.annotation.SuppressLint
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandIn
@@ -43,26 +41,19 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.rememberSwipeToDismissBoxState
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.Immutable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.Stable
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -70,35 +61,35 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.fastForEachIndexed
 import androidx.compose.ui.zIndex
-import androidx.core.graphics.drawable.toBitmapOrNull
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.offline.Download
 import androidx.media3.exoplayer.offline.Download.STATE_COMPLETED
 import androidx.media3.exoplayer.offline.Download.STATE_DOWNLOADING
 import androidx.media3.exoplayer.offline.Download.STATE_QUEUED
 import coil3.compose.AsyncImage
-import coil3.compose.AsyncImagePainter
 import coil3.request.ImageRequest
 import com.metrolist.innertube.YouTube
-import com.metrolist.innertube.models.SongItem
 import com.metrolist.innertube.models.AlbumItem
 import com.metrolist.innertube.models.ArtistItem
 import com.metrolist.innertube.models.PlaylistItem
+import com.metrolist.innertube.models.SongItem
 import com.metrolist.innertube.models.YTItem
 import com.metrolist.music.LocalDatabase
 import com.metrolist.music.LocalDownloadUtil
@@ -107,26 +98,23 @@ import com.metrolist.music.R
 import com.metrolist.music.constants.CropAlbumArtKey
 import com.metrolist.music.constants.GridItemSize
 import com.metrolist.music.constants.GridItemsSizeKey
-import com.metrolist.music.constants.HideExplicitKey
-import com.metrolist.music.constants.ListItemHeight
 import com.metrolist.music.constants.GridThumbnailHeight
-import com.metrolist.music.constants.SmallGridThumbnailHeight
+import com.metrolist.music.constants.ListItemHeight
 import com.metrolist.music.constants.ListThumbnailSize
-import com.metrolist.music.constants.ThumbnailCornerRadius
+import com.metrolist.music.constants.SmallGridThumbnailHeight
 import com.metrolist.music.constants.SwipeToSongKey
-import com.metrolist.music.utils.rememberEnumPreference
-import com.metrolist.music.db.entities.Song
+import com.metrolist.music.constants.ThumbnailCornerRadius
 import com.metrolist.music.db.entities.Album
-import com.metrolist.music.db.entities.AlbumEntity
 import com.metrolist.music.db.entities.Artist
 import com.metrolist.music.db.entities.Playlist
+import com.metrolist.music.db.entities.Song
 import com.metrolist.music.extensions.toMediaItem
 import com.metrolist.music.models.MediaMetadata
 import com.metrolist.music.playback.queues.LocalAlbumRadio
-import com.metrolist.music.ui.theme.extractThemeColor
 import com.metrolist.music.ui.utils.resize
 import com.metrolist.music.utils.joinByBullet
 import com.metrolist.music.utils.makeTimeString
+import com.metrolist.music.utils.rememberEnumPreference
 import com.metrolist.music.utils.rememberPreference
 import com.metrolist.music.utils.reportException
 import kotlinx.coroutines.CoroutineScope
@@ -135,7 +123,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.util.logging.Logger
 import kotlin.math.roundToInt
 
 const val ActiveBoxAlpha = 0.6f
@@ -232,6 +219,37 @@ inline fun ListItem(
         trailingContent()
     }
 }
+
+@Composable
+fun ListItem(
+    modifier: Modifier = Modifier,
+    title: String,
+    subtitle: AnnotatedString?,
+    badges: @Composable RowScope.() -> Unit = {},
+    thumbnailContent: @Composable () -> Unit,
+    trailingContent: @Composable RowScope.() -> Unit = {},
+    isSelected: Boolean? = false,
+    isActive: Boolean = false,
+) = ListItem(
+    title = title,
+    subtitle = {
+        badges()
+        if (subtitle != null) {
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.secondary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    },
+    thumbnailContent = thumbnailContent,
+    trailingContent = trailingContent,
+    modifier = modifier,
+    isSelected = isSelected,
+    isActive = isActive
+)
 
 // merge badges and subtitle text and pass to basic list item
 @Composable
@@ -573,7 +591,7 @@ fun AlbumListItem(
         val allDownloads by downloadUtil.downloads.collectAsState()
 
         val downloadState by remember(songs, allDownloads) {
-            mutableStateOf(
+            androidx.compose.runtime.mutableIntStateOf(
                 if (songs.isEmpty()) {
                     Download.STATE_STOPPED
                 } else {
@@ -636,7 +654,7 @@ fun AlbumGridItem(
         val allDownloads by downloadUtil.downloads.collectAsState()
 
         val downloadState by remember(songs, allDownloads) {
-            mutableStateOf(
+            androidx.compose.runtime.mutableIntStateOf(
                 if (songs.isEmpty()) {
                     Download.STATE_STOPPED
                 } else {
@@ -729,7 +747,7 @@ fun PlaylistListItem(
         val allDownloads by downloadUtil.downloads.collectAsState()
 
         val downloadState by remember(songs, allDownloads) {
-            mutableStateOf(
+            androidx.compose.runtime.mutableIntStateOf(
                 if (songs.isEmpty()) {
                     Download.STATE_STOPPED
                 } else {
@@ -810,7 +828,7 @@ fun PlaylistGridItem(
         val allDownloads by downloadUtil.downloads.collectAsState()
 
         val downloadState by remember(songs, allDownloads) {
-            mutableStateOf(
+            mutableIntStateOf(
                 if (songs.isEmpty()) {
                     Download.STATE_STOPPED
                 } else {
@@ -908,10 +926,24 @@ fun MediaMetadataListItem(
 ) {
     ListItem(
         title = mediaMetadata.title,
-        subtitle = joinByBullet(
-            mediaMetadata.artists.joinToString { it.name },
-            makeTimeString(mediaMetadata.duration * 1000L)
-        ),
+        subtitle = if (mediaMetadata.suggestedBy != null) {
+            buildAnnotatedString {
+                append(mediaMetadata.artists.joinToString { it.name })
+                append(" • ")
+                append(makeTimeString(mediaMetadata.duration * 1000L))
+                append(" • ")
+                withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
+                    append(mediaMetadata.suggestedBy)
+                }
+            }
+        } else {
+            AnnotatedString(
+                joinByBullet(
+                    mediaMetadata.artists.joinToString { it.name },
+                    makeTimeString(mediaMetadata.duration * 1000L)
+                )
+            )
+        },
         badges = { if (mediaMetadata.explicit) Icon.Explicit()},
         thumbnailContent = {
             ItemThumbnail(
@@ -1559,7 +1591,7 @@ fun SwipeToSongBox(
     val threshold = 300f
 
     val dragState = rememberDraggableState { delta ->
-        offset.value = (offset.value + delta).coerceIn(-threshold, threshold)
+        offset.floatValue = (offset.floatValue + delta).coerceIn(-threshold, threshold)
     }
 
     Box(
@@ -1570,13 +1602,13 @@ fun SwipeToSongBox(
                 state = dragState,
                 onDragStopped = {
                     when {
-                        offset.value >= threshold -> {
+                        offset.floatValue >= threshold -> {
                             player?.playNext(listOf(mediaItem))
                             Toast.makeText(ctx, R.string.play_next, Toast.LENGTH_SHORT).show()
                             reset(offset, scope)
                         }
 
-                        offset.value <= -threshold -> {
+                        offset.floatValue <= -threshold -> {
                             player?.addToQueue(listOf(mediaItem))
                             Toast.makeText(ctx, R.string.add_to_queue, Toast.LENGTH_SHORT).show()
                             reset(offset, scope)
@@ -1587,8 +1619,8 @@ fun SwipeToSongBox(
                 }
             )
     ) {
-        if (offset.value != 0f) {
-            val (iconRes, bg, tint, align) = if (offset.value > 0)
+        if (offset.floatValue != 0f) {
+            val (iconRes, bg, tint, align) = if (offset.floatValue > 0)
                 Quadruple(
                     R.drawable.playlist_play,
                     MaterialTheme.colorScheme.secondary,
@@ -1624,7 +1656,7 @@ fun SwipeToSongBox(
 
         Box(
             modifier = Modifier
-                .offset { IntOffset(offset.value.roundToInt(), 0) }
+                .offset { IntOffset(offset.floatValue.roundToInt(), 0) }
                 .fillMaxWidth()
                 .background(MaterialTheme.colorScheme.surface),
             content = content

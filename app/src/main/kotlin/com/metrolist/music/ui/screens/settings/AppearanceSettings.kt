@@ -5,6 +5,8 @@
 
 package com.metrolist.music.ui.screens.settings
 
+import android.app.Activity
+import android.content.Intent
 import android.os.Build
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -18,7 +20,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -27,56 +28,57 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.metrolist.music.LocalPlayerAwareWindowInsets
 import com.metrolist.music.R
 import com.metrolist.music.constants.ChipSortTypeKey
-import com.metrolist.music.constants.DarkModeKey
+import com.metrolist.music.constants.CropAlbumArtKey
 import com.metrolist.music.constants.DefaultOpenTabKey
-import com.metrolist.music.constants.EnableDynamicIconKey
 import com.metrolist.music.constants.DynamicThemeKey
+import com.metrolist.music.constants.EnableDynamicIconKey
+import com.metrolist.music.constants.EnableHighRefreshRateKey
 import com.metrolist.music.constants.GridItemSize
 import com.metrolist.music.constants.GridItemsSizeKey
 import com.metrolist.music.constants.HidePlayerThumbnailKey
 import com.metrolist.music.constants.LibraryFilter
-import com.metrolist.music.constants.LyricsClickKey
-import com.metrolist.music.constants.LyricsScrollKey
-import com.metrolist.music.constants.LyricsTextPositionKey
 import com.metrolist.music.constants.LyricsAnimationStyle
 import com.metrolist.music.constants.LyricsAnimationStyleKey
-import com.metrolist.music.constants.LyricsTextSizeKey
-import com.metrolist.music.constants.LyricsLineSpacingKey
+import com.metrolist.music.constants.LyricsClickKey
 import com.metrolist.music.constants.LyricsGlowEffectKey
-import com.metrolist.music.constants.MiniPlayerOutlineKey
+import com.metrolist.music.constants.LyricsLineSpacingKey
+import com.metrolist.music.constants.LyricsScrollKey
+import com.metrolist.music.constants.LyricsTextPositionKey
+import com.metrolist.music.constants.LyricsTextSizeKey
 import com.metrolist.music.constants.PlayerBackgroundStyle
 import com.metrolist.music.constants.PlayerBackgroundStyleKey
 import com.metrolist.music.constants.PlayerButtonsStyle
 import com.metrolist.music.constants.PlayerButtonsStyleKey
-import com.metrolist.music.constants.PureBlackKey
 import com.metrolist.music.constants.PureBlackMiniPlayerKey
+import com.metrolist.music.constants.SelectedThemeColorKey
 import com.metrolist.music.constants.ShowCachedPlaylistKey
 import com.metrolist.music.constants.ShowDownloadedPlaylistKey
 import com.metrolist.music.constants.ShowLikedPlaylistKey
@@ -84,12 +86,12 @@ import com.metrolist.music.constants.ShowTopPlaylistKey
 import com.metrolist.music.constants.ShowUploadedPlaylistKey
 import com.metrolist.music.constants.SliderStyle
 import com.metrolist.music.constants.SliderStyleKey
-import com.metrolist.music.constants.SquigglySliderKey
 import com.metrolist.music.constants.SlimNavBarKey
+import com.metrolist.music.constants.SquigglySliderKey
 import com.metrolist.music.constants.SwipeSensitivityKey
 import com.metrolist.music.constants.SwipeThumbnailKey
-import com.metrolist.music.constants.SwipeToSongKey
 import com.metrolist.music.constants.SwipeToRemoveSongKey
+import com.metrolist.music.constants.SwipeToSongKey
 import com.metrolist.music.constants.UseNewMiniPlayerDesignKey
 import com.metrolist.music.constants.UseNewPlayerDesignKey
 import com.metrolist.music.ui.component.DefaultDialog
@@ -98,21 +100,16 @@ import com.metrolist.music.ui.component.IconButton
 import com.metrolist.music.ui.component.Material3SettingsGroup
 import com.metrolist.music.ui.component.Material3SettingsItem
 import com.metrolist.music.ui.component.PlayerSliderTrack
+import com.metrolist.music.ui.component.SquigglySlider
+import com.metrolist.music.ui.component.WavySlider
+import com.metrolist.music.ui.theme.DefaultThemeColor
 import com.metrolist.music.ui.theme.PlayerSliderColors
 import com.metrolist.music.ui.utils.backToMain
 import com.metrolist.music.utils.IconUtils
 import com.metrolist.music.utils.rememberEnumPreference
 import com.metrolist.music.utils.rememberPreference
-import com.metrolist.music.ui.component.WavySlider
-import me.saket.squiggles.SquigglySlider
-import kotlin.math.roundToInt
-import androidx.compose.material3.SnackbarResult
-import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
-import android.content.Intent
-import android.app.Activity
-import androidx.compose.material3.SnackbarHostState
-import com.metrolist.music.constants.CropAlbumArtKey
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -130,6 +127,16 @@ fun AppearanceSettings(
         EnableDynamicIconKey,
         defaultValue = true
     )
+    val (enableHighRefreshRate, onEnableHighRefreshRateChange) = rememberPreference(
+        EnableHighRefreshRateKey,
+        defaultValue = true
+    )
+    val (selectedThemeColorInt) = rememberPreference(
+        SelectedThemeColorKey,
+        defaultValue = DefaultThemeColor.toArgb()
+    )
+    // Check if user has selected a custom color (not the default/dynamic color)
+    val isUsingCustomColor = selectedThemeColorInt != DefaultThemeColor.toArgb()
     val coroutineScope = rememberCoroutineScope()
 
     fun handleIconChange(enabled: Boolean) {
@@ -151,10 +158,7 @@ fun AppearanceSettings(
         }
     }
 
-    val (darkMode, onDarkModeChange) = rememberEnumPreference(
-        DarkModeKey,
-        defaultValue = DarkMode.AUTO
-    )
+
     val (useNewPlayerDesign, onUseNewPlayerDesignChange) = rememberPreference(
         UseNewPlayerDesignKey,
         defaultValue = true
@@ -176,7 +180,7 @@ fun AppearanceSettings(
             PlayerBackgroundStyleKey,
             defaultValue = PlayerBackgroundStyle.DEFAULT,
         )
-    val (pureBlack, onPureBlackChange) = rememberPreference(PureBlackKey, defaultValue = false)
+
     val (defaultOpenTab, onDefaultOpenTabChange) = rememberEnumPreference(
         DefaultOpenTabKey,
         defaultValue = NavigationTab.HOME
@@ -263,11 +267,7 @@ fun AppearanceSettings(
         it != PlayerBackgroundStyle.BLUR || Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
     }
 
-    val isSystemInDarkTheme = isSystemInDarkTheme()
-    val useDarkTheme =
-        remember(darkMode, isSystemInDarkTheme) {
-            if (darkMode == DarkMode.AUTO) isSystemInDarkTheme else darkMode == DarkMode.ON
-        }
+
 
     val (defaultChip, onDefaultChipChange) = rememberEnumPreference(
         key = ChipSortTypeKey,
@@ -278,9 +278,7 @@ fun AppearanceSettings(
         mutableStateOf(false)
     }
 
-    var showDarkModeDialog by rememberSaveable {
-        mutableStateOf(false)
-    }
+
 
     var showPlayerBackgroundDialog by rememberSaveable {
         mutableStateOf(false)
@@ -517,25 +515,6 @@ fun AppearanceSettings(
         )
     }
 
-    if (showDarkModeDialog) {
-        EnumDialog(
-            onDismiss = { showDarkModeDialog = false },
-            onSelect = {
-                onDarkModeChange(it)
-                showDarkModeDialog = false
-            },
-            title = stringResource(R.string.dark_theme),
-            current = darkMode,
-            values = DarkMode.values().toList(),
-            valueText = {
-                when (it) {
-                    DarkMode.ON -> stringResource(R.string.dark_theme_on)
-                    DarkMode.OFF -> stringResource(R.string.dark_theme_off)
-                    DarkMode.AUTO -> stringResource(R.string.dark_theme_follow_system)
-                }
-            }
-        )
-    }
 
     var showDefaultOpenTabDialog by rememberSaveable {
         mutableStateOf(false)
@@ -777,19 +756,10 @@ fun AppearanceSettings(
                             value = sliderValue,
                             valueRange = 0f..1f,
                             onValueChange = { /* preview only */ },
-                            modifier = Modifier
-                                .weight(1f)
-                                .pointerInput(Unit) {
-                                    awaitPointerEventScope {
-                                        while (true) {
-                                            awaitPointerEvent()
-                                        }
-                                    }
-                                },
-                            squigglesSpec = SquigglySlider.SquigglesSpec(
-                                amplitude = 2.dp,
-                                strokeWidth = 3.dp,
-                            ),
+                            modifier = Modifier.weight(1f),
+                            enabled = false,
+                            colors = sliderPreviewColors,
+                            isPlaying = true,
                         )
                         Text(
                             text = stringResource(R.string.squiggly),
@@ -836,16 +806,17 @@ fun AppearanceSettings(
                 )
                 add(
                     Material3SettingsItem(
-                        icon = painterResource(R.drawable.palette),
-                        title = { Text(stringResource(R.string.enable_dynamic_theme)) },
+                        icon = painterResource(R.drawable.speed),
+                        title = { Text(stringResource(R.string.enable_high_refresh_rate)) },
+                        description = { Text(stringResource(R.string.enable_high_refresh_rate_desc)) },
                         trailingContent = {
                             Switch(
-                                checked = dynamicTheme,
-                                onCheckedChange = onDynamicThemeChange,
+                                checked = enableHighRefreshRate,
+                                onCheckedChange = onEnableHighRefreshRateChange,
                                 thumbContent = {
                                     Icon(
                                         painter = painterResource(
-                                            id = if (dynamicTheme) R.drawable.check else R.drawable.close
+                                            id = if (enableHighRefreshRate) R.drawable.check else R.drawable.close
                                         ),
                                         contentDescription = null,
                                         modifier = Modifier.size(SwitchDefaults.IconSize)
@@ -853,38 +824,24 @@ fun AppearanceSettings(
                                 }
                             )
                         },
-                        onClick = { onDynamicThemeChange(!dynamicTheme) }
+                        onClick = { onEnableHighRefreshRateChange(!enableHighRefreshRate) }
                     )
                 )
-                add(
-                    Material3SettingsItem(
-                        icon = painterResource(R.drawable.dark_mode),
-                        title = { Text(stringResource(R.string.dark_theme)) },
-                        description = {
-                            Text(
-                                when (darkMode) {
-                                    DarkMode.ON -> stringResource(R.string.dark_theme_on)
-                                    DarkMode.OFF -> stringResource(R.string.dark_theme_off)
-                                    DarkMode.AUTO -> stringResource(R.string.dark_theme_follow_system)
-                                }
-                            )
-                        },
-                        onClick = { showDarkModeDialog = true }
-                    )
-                )
-                if (useDarkTheme) {
+                // Only show dynamic theme option when using the default/dynamic color
+                // When a custom color is selected, dynamic theme is automatically disabled
+                if (!isUsingCustomColor) {
                     add(
                         Material3SettingsItem(
-                            icon = painterResource(R.drawable.contrast),
-                            title = { Text(stringResource(R.string.pure_black)) },
+                            icon = painterResource(R.drawable.palette),
+                            title = { Text(stringResource(R.string.enable_dynamic_theme)) },
                             trailingContent = {
                                 Switch(
-                                    checked = pureBlack,
-                                    onCheckedChange = onPureBlackChange,
+                                    checked = dynamicTheme,
+                                    onCheckedChange = onDynamicThemeChange,
                                     thumbContent = {
                                         Icon(
                                             painter = painterResource(
-                                                id = if (pureBlack) R.drawable.check else R.drawable.close
+                                                id = if (dynamicTheme) R.drawable.check else R.drawable.close
                                             ),
                                             contentDescription = null,
                                             modifier = Modifier.size(SwitchDefaults.IconSize)
@@ -892,10 +849,18 @@ fun AppearanceSettings(
                                     }
                                 )
                             },
-                            onClick = { onPureBlackChange(!pureBlack) }
+                            onClick = { onDynamicThemeChange(!dynamicTheme) }
                         )
                     )
                 }
+                add(
+                    Material3SettingsItem(
+                        icon = painterResource(R.drawable.palette),
+                        title = { Text(stringResource(R.string.theme)) },
+                        description = { Text(stringResource(R.string.theme_desc)) },
+                        onClick = { navController.navigate("settings/appearance/theme") }
+                    )
+                )
             }
         )
 

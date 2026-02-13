@@ -8,7 +8,6 @@ if (localPropertiesFile.exists()) {
 }
 plugins {
     id("com.android.application")
-    kotlin("android")
     alias(libs.plugins.hilt)
     alias(libs.plugins.kotlin.ksp)
     alias(libs.plugins.compose.compiler)
@@ -18,13 +17,14 @@ plugins {
 android {
     namespace = "com.metrolist.music"
     compileSdk = 36
+    ndkVersion = "27.0.12077973"
 
     defaultConfig {
         applicationId = "com.metrolist.music"
         minSdk = 26
         targetSdk = 36
-        versionCode = 139
-        versionName = "12.12.4"
+        versionCode = 140
+        versionName = "13.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
@@ -35,6 +35,18 @@ android {
 
         buildConfigField("String", "LASTFM_API_KEY", "\"$lastFmKey\"")
         buildConfigField("String", "LASTFM_SECRET", "\"$lastFmSecret\"")
+        
+        // NDK configuration for vibra_fp library
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64", "x86")
+        }
+    }
+    
+    externalNativeBuild {
+        cmake {
+            path("src/main/cpp/vibrafp/lib/CMakeLists.txt")
+            version = "3.22.1"
+        }
     }
 
     flavorDimensions += listOf("abi", "variant")
@@ -112,6 +124,17 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            externalNativeBuild {
+                cmake {
+                    arguments += listOf(
+                        "-DENABLE_LTO=ON",
+                        "-DCMAKE_BUILD_TYPE=Release"
+                    )
+                }
+            }
+            ndk {
+                debugSymbolLevel = "NONE"
+            }
         }
         debug {
            /* applicationIdSuffix = ".debug"
@@ -121,6 +144,17 @@ android {
             } else {
                 signingConfigs.getByName("persistentDebug")
             } */
+            externalNativeBuild {
+                cmake {
+                    arguments += listOf(
+                        "-DENABLE_LTO=OFF",
+                        "-DCMAKE_BUILD_TYPE=Debug"
+                    )
+                }
+            }
+            ndk {
+                debugSymbolLevel = "FULL"
+            }
         }
     }
 
@@ -238,14 +272,8 @@ dependencies {
     implementation(libs.room.runtime)
     implementation(libs.kuromoji.ipadic)
     implementation(libs.tinypinyin)
-    implementation(libs.squigglyslider)
     ksp(libs.room.compiler)
     implementation(libs.room.ktx)
-
-    // Glance for Material 3 Expressive Widgets
-    implementation(libs.glance)
-    implementation(libs.glance.appwidget)
-    implementation(libs.glance.material3)
 
     implementation(libs.apache.lang3)
 
@@ -260,11 +288,17 @@ dependencies {
     implementation(project(":lastfm"))
     implementation(project(":betterlyrics"))
     implementation(project(":simpmusic"))
+    implementation(project(":shazamkit"))
 
     implementation(libs.ktor.client.core)
     implementation(libs.ktor.serialization.json)
 
+    // Protobuf for message serialization (lite version for Android)
+    implementation(libs.protobuf.javalite)
+    implementation(libs.protobuf.kotlin.lite)
+
     coreLibraryDesugaring(libs.desugaring)
 
+    implementation(libs.mlkit.language.id)
     implementation(libs.timber)
 }
