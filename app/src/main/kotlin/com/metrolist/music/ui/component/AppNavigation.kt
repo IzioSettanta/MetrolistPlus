@@ -73,7 +73,7 @@ fun AppNavigationRail(
                 if (isSelected) screen.iconIdActive else screen.iconIdInactive
             }
             
-            val isSearchItem = screen == Screens.Search && onSearchLongClick != null
+            val isSearchItem = (screen == Screens.Search || screen == Screens.VoiceSearch) && onSearchLongClick != null
             val interactionSource = remember { MutableInteractionSource() }
             
             // Long press detection using InteractionSource
@@ -152,7 +152,7 @@ fun AppNavigationBar(
                 if (isSelected) screen.iconIdActive else screen.iconIdInactive
             }
             
-            val isSearchItem = screen == Screens.Search && onSearchLongClick != null
+            val isSearchItem = (screen == Screens.Search || screen == Screens.VoiceSearch) && onSearchLongClick != null
             val interactionSource = remember { MutableInteractionSource() }
             
             // Long press detection using InteractionSource

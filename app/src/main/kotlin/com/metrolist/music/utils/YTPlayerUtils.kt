@@ -136,9 +136,9 @@ object YTPlayerUtils {
             if (streamPlayerResponse?.playabilityStatus?.status == "OK") {
                 Timber.tag(logTag).d("Player response status OK for client: ${if (clientIndex == -1) MAIN_CLIENT.clientName else STREAM_FALLBACK_CLIENTS[clientIndex].clientName}")
 
-                // Try to get streams using newPipePlayer method
-                val newPipeResponse = YouTube.newPipePlayer(videoId, streamPlayerResponse)
-                val responseToUse = newPipeResponse ?: streamPlayerResponse
+                // Try to get streams using newPipePlayer method (temporarily disabled due to compatibility issues)
+                // val newPipeResponse = YouTube.newPipePlayer(videoId, streamPlayerResponse)
+                val responseToUse = streamPlayerResponse // Use only standard YouTube response
 
                 format =
                     findFormat(
@@ -288,13 +288,15 @@ object YTPlayerUtils {
     }
     private fun getSignatureTimestampOrNull(videoId: String): Int? {
         Timber.tag(logTag).d("Getting signature timestamp for videoId: $videoId")
-        return NewPipeExtractor.getSignatureTimestamp(videoId)
-            .onSuccess { Timber.tag(logTag).d("Signature timestamp obtained: $it") }
-            .onFailure {
-                Timber.tag(logTag).e(it, "Failed to get signature timestamp")
-                reportException(it)
-            }
-            .getOrNull()
+        // Temporarily disabled due to compatibility issues
+        // return NewPipeExtractor.getSignatureTimestamp(videoId)
+        //     .onSuccess { Timber.tag(logTag).d("Signature timestamp obtained: $it") }
+        //     .onFailure {
+        //         Timber.tag(logTag).e(it, "Failed to get signature timestamp")
+        //         reportException(it)
+        //     }
+        //     .getOrNull()
+        return null // Use default timestamp
     }
 
     private fun findUrlOrNull(
@@ -310,35 +312,23 @@ object YTPlayerUtils {
             return format.url
         }
 
-        // Try to get URL using NewPipeExtractor signature deobfuscation
-        val deobfuscatedUrl = NewPipeExtractor.getStreamUrl(format, videoId)
-        if (deobfuscatedUrl != null) {
-            Timber.tag(logTag).d("Stream URL obtained via deobfuscation")
-            return deobfuscatedUrl
-        }
+        // Try to get URL using NewPipeExtractor signature deobfuscation (temporarily disabled)
+        // val deobfuscatedUrl = NewPipeExtractor.getStreamUrl(format, videoId)
+        // if (deobfuscatedUrl != null) {
+        //     Timber.tag(logTag).d("Stream URL obtained via deobfuscation")
+        //     return deobfuscatedUrl
+        // }
 
-        // Fallback: try to get URL from StreamInfo
-        Timber.tag(logTag).d("Trying StreamInfo fallback for URL")
-        val streamUrls = YouTube.getNewPipeStreamUrls(videoId)
-        if (streamUrls.isNotEmpty()) {
-            val streamUrl = streamUrls.find { it.first == format.itag }?.second
-            if (streamUrl != null) {
-                Timber.tag(logTag).d("Stream URL obtained from StreamInfo")
-                return streamUrl
-            }
-
-            // If exact itag not found, try to find any audio stream
-            val audioStream = streamUrls.find { urlPair ->
-                playerResponse.streamingData?.adaptiveFormats?.any {
-                    it.itag == urlPair.first && it.isAudio
-                } == true
-            }?.second
-
-            if (audioStream != null) {
-                Timber.tag(logTag).d("Audio stream URL obtained from StreamInfo (different itag)")
-                return audioStream
-            }
-        }
+        // Fallback: try to get URL from StreamInfo (temporarily disabled due to compatibility issues)
+        Timber.tag(logTag).d("StreamInfo fallback disabled due to compatibility issues")
+        // val streamUrls = YouTube.getNewPipeStreamUrls(videoId)
+        // if (streamUrls.isNotEmpty()) {
+        //     val streamUrl = streamUrls.find { it.first == format.itag }?.second
+        //     if (streamUrl != null) {
+        //         Timber.tag(logTag).d("Stream URL obtained from StreamInfo")
+        //         return streamUrl
+        //     }
+        // }
 
         Timber.tag(logTag).e("Failed to get stream URL")
         return null

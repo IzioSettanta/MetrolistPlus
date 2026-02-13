@@ -38,16 +38,16 @@ android {
         
         // NDK configuration for vibra_fp library
         ndk {
-            abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64", "x86")
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86")
         }
     }
     
-    externalNativeBuild {
-        cmake {
-            path("src/main/cpp/vibrafp/lib/CMakeLists.txt")
-            version = "3.22.1"
-        }
-    }
+    // externalNativeBuild {
+    //     cmake {
+    //         path("src/main/cpp/vibrafp/lib/CMakeLists.txt")
+    //         version = "3.22.1"
+    //     }
+    // }
 
     flavorDimensions += listOf("abi", "variant")
     productFlavors {
@@ -67,7 +67,7 @@ android {
         create("universal") {
             dimension = "abi"
             ndk {
-                abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+                abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86")
             }
             buildConfigField("String", "ARCHITECTURE", "\"universal\"")
         }
@@ -85,11 +85,6 @@ android {
             dimension = "abi"
             ndk { abiFilters += "x86" }
             buildConfigField("String", "ARCHITECTURE", "\"x86\"")
-        }
-        create("x86_64") {
-            dimension = "abi"
-            ndk { abiFilters += "x86_64" }
-            buildConfigField("String", "ARCHITECTURE", "\"x86_64\"")
         }
     }
 
@@ -160,15 +155,15 @@ android {
 
     compileOptions {
         isCoreLibraryDesugaringEnabled = true
-        sourceCompatibility = JavaVersion.VERSION_21
-        targetCompatibility = JavaVersion.VERSION_21
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     kotlin {
-        jvmToolchain(21)
+        jvmToolchain(17)
         compilerOptions {
             freeCompilerArgs.add("-Xannotation-default-target=param-property")
-            jvmTarget.set(JvmTarget.JVM_21)
+            jvmTarget.set(JvmTarget.JVM_17)
         }
     }
 

@@ -84,9 +84,13 @@ fun VoiceSearchScreen(navController: NavHostController) {
                 val text = matches?.get(0) ?: ""
                 if (text.isNotEmpty()) {
                     val encoded = URLEncoder.encode(text, "UTF-8")
-                    navController.navigate("search/$encoded") {
-                        popUpTo(Screens.VoiceSearch.route) { inclusive = true }
+                    navController.navigate(Screens.Search.route) {
+                        popUpTo(Screens.VoiceSearch.route) {
+                            inclusive = true
+                        }
                     }
+                    // Also set the search query in the search screen
+                    navController.currentBackStackEntry?.savedStateHandle?.set("query", text)
                 }
             }
             override fun onPartialResults(partialResults: Bundle?) {

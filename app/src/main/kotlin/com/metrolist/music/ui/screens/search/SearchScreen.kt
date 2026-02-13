@@ -24,6 +24,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -55,6 +56,7 @@ import com.metrolist.music.constants.PauseSearchHistoryKey
 import com.metrolist.music.constants.SearchSource
 import com.metrolist.music.constants.SearchSourceKey
 import com.metrolist.music.db.entities.SearchHistory
+import com.metrolist.music.ui.screens.Screens
 import com.metrolist.music.utils.rememberEnumPreference
 import com.metrolist.music.utils.rememberPreference
 import kotlinx.coroutines.Dispatchers
@@ -79,6 +81,7 @@ fun SearchScreen(
     var query by rememberSaveable(stateSaver = TextFieldValue.Saver) {
         mutableStateOf(TextFieldValue())
     }
+    
     val pauseSearchHistory by rememberPreference(PauseSearchHistoryKey, defaultValue = false)
     var isFirstLaunch by rememberSaveable { mutableStateOf(true) }
 
@@ -96,6 +99,20 @@ fun SearchScreen(
                     }
                 }
             }
+        }
+    }
+    
+    // Handle query from voice search navigation
+    val voiceQuery = navController.currentBackStackEntry
+        ?.savedStateHandle
+        ?.get<String>("query")
+    
+    LaunchedEffect(voiceQuery) {
+        voiceQuery?.let { text ->
+            query = TextFieldValue(text)
+            navController.currentBackStackEntry?.savedStateHandle?.remove<String>("query")
+            // Trigger search automatically
+            onSearch(text)
         }
     }
 
@@ -162,6 +179,15 @@ fun SearchScreen(
                         )
                         
                         Row {
+                            IconButton(
+                                onClick = { navController.navigate(Screens.VoiceSearch.route) }
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.mic),
+                                    contentDescription = stringResource(R.string.voice_search),
+                                    tint = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
                             if (query.text.isNotEmpty()) {
                                 IconButton(onClick = { query = TextFieldValue("") }) {
                                     Icon(

@@ -38,6 +38,7 @@ import com.metrolist.music.ui.screens.playlist.OnlinePlaylistScreen
 import com.metrolist.music.ui.screens.playlist.TopPlaylistScreen
 import com.metrolist.music.ui.screens.search.OnlineSearchResult
 import com.metrolist.music.ui.screens.search.SearchScreen
+import com.metrolist.music.ui.screens.search.VoiceSearchScreen
 import com.metrolist.music.ui.screens.settings.AboutScreen
 import com.metrolist.music.ui.screens.settings.AppearanceSettings
 import com.metrolist.music.ui.screens.settings.BackupAndRestore
@@ -55,7 +56,7 @@ import com.metrolist.music.ui.screens.settings.AiSettings
 import com.metrolist.music.ui.screens.settings.integrations.DiscordSettings
 import com.metrolist.music.ui.screens.settings.integrations.IntegrationScreen
 import com.metrolist.music.ui.screens.settings.integrations.LastFMSettings
-import com.metrolist.music.ui.screens.settings.integrations.ListenTogetherSettings
+// import com.metrolist.music.ui.screens.settings.integrations.ListenTogetherSettings
 import com.metrolist.music.ui.screens.recognition.RecognitionScreen
 import com.metrolist.music.ui.screens.recognition.RecognitionHistoryScreen
 import com.metrolist.music.ui.screens.wrapped.WrappedScreen
@@ -90,12 +91,16 @@ fun NavGraphBuilder.navigationBuilder(
         )
     }
 
+    composable(Screens.VoiceSearch.route) {
+        VoiceSearchScreen(navController)
+    }
+
     composable(Screens.Library.route) {
         LibraryScreen(navController)
     }
 
     composable(Screens.ListenTogether.route) {
-        ListenTogetherScreen(navController)
+        // ListenTogetherScreen(navController)
     }
 
     composable("history") {
@@ -355,7 +360,7 @@ fun NavGraphBuilder.navigationBuilder(
     }
 
     composable(route = "settings/integrations/listen_together") {
-        ListenTogetherSettings(navController, scrollBehavior)
+        // ListenTogetherSettings(navController, scrollBehavior)
     }
 
     composable("settings/discord/login") {

@@ -65,14 +65,13 @@ fun YouTubeSelectionSongMenu(
     val playerConnection = LocalPlayerConnection.current ?: return
     val coroutineScope = rememberCoroutineScope()
     val syncUtils = LocalSyncUtils.current
+    val isGuest = false // ListenTogether temporarily disabled
 
     var showChoosePlaylistDialog by rememberSaveable {
         mutableStateOf(false)
     }
 
-    val listenTogetherManager = com.metrolist.music.LocalListenTogetherManager.current
-    val isGuest = listenTogetherManager?.isInRoom == true && listenTogetherManager.isHost == false
-
+        
     var downloadState by remember {
         mutableIntStateOf(Download.STATE_STOPPED)
     }

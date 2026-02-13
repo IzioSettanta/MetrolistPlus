@@ -215,8 +215,8 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var syncUtils: SyncUtils
     
-    @Inject
-    lateinit var listenTogetherManager: com.metrolist.music.listentogether.ListenTogetherManager
+    // @Inject
+    // lateinit var listenTogetherManager: com.metrolist.music.listentogether.ListenTogetherManager
 
     private lateinit var navController: NavHostController
     private var pendingIntent: Intent? = null
@@ -231,7 +231,7 @@ class MainActivity : ComponentActivity() {
                     playerConnection = PlayerConnection(this@MainActivity, service, database, lifecycleScope)
                     Timber.tag("MainActivity").d("PlayerConnection created successfully")
                     // Connect Listen Together manager to player
-                    listenTogetherManager.setPlayerConnection(playerConnection)
+                    // listenTogetherManager.setPlayerConnection(playerConnection)
                 } catch (e: Exception) {
                     Timber.tag("MainActivity").e(e, "Failed to create PlayerConnection")
                     // Retry after a delay of 500ms
@@ -239,7 +239,7 @@ class MainActivity : ComponentActivity() {
                         delay(500)
                         try {
                             playerConnection = PlayerConnection(this@MainActivity, service, database, lifecycleScope)
-                            listenTogetherManager.setPlayerConnection(playerConnection)
+                            // listenTogetherManager.setPlayerConnection(playerConnection)
                         } catch (e2: Exception) {
                             Timber.tag("MainActivity").e(e2, "Failed to create PlayerConnection on retry")
                         }
@@ -250,7 +250,7 @@ class MainActivity : ComponentActivity() {
 
         override fun onServiceDisconnected(name: ComponentName?) {
             // Disconnect Listen Together manager
-            listenTogetherManager.setPlayerConnection(null)
+            // listenTogetherManager.setPlayerConnection(null)
             playerConnection?.dispose()
             playerConnection = null
         }
@@ -309,7 +309,7 @@ class MainActivity : ComponentActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         
         // Initialize Listen Together manager
-        listenTogetherManager.initialize()
+        // listenTogetherManager.initialize()
 
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
             val locale = dataStore[AppLanguageKey]
@@ -566,7 +566,9 @@ class MainActivity : ComponentActivity() {
                 }
 
                 val inSearchScreen by remember {
-                    derivedStateOf { currentRoute?.startsWith("search/") == true }
+                    derivedStateOf { 
+                        currentRoute?.startsWith("search/") == true || currentRoute == Screens.VoiceSearch.route 
+                    }
                 }
                 val navigationItemRoutes = remember(navigationItems) {
                     navigationItems.map { it.route }.toSet()
@@ -575,7 +577,8 @@ class MainActivity : ComponentActivity() {
                 val shouldShowNavigationBar = remember(currentRoute, navigationItemRoutes) {
                     currentRoute == null ||
                         navigationItemRoutes.contains(currentRoute) ||
-                        currentRoute!!.startsWith("search/")
+                        currentRoute!!.startsWith("search/") ||
+                        currentRoute == Screens.VoiceSearch.route
                 }
 
                 val isLandscape = configuration.containerDpSize.width > configuration.containerDpSize.height
@@ -636,13 +639,11 @@ class MainActivity : ComponentActivity() {
                 LaunchedEffect(navBackStackEntry) {
                     if (inSearchScreen) {
                         val searchQuery = withContext(Dispatchers.IO) {
-                            if (navBackStackEntry?.arguments?.getString("query")!!.contains("%")) {
-                                navBackStackEntry?.arguments?.getString("query")!!
+                            val query = navBackStackEntry?.arguments?.getString("query")
+                            if (query != null && query.contains("%")) {
+                                URLDecoder.decode(query, "UTF-8")
                             } else {
-                                URLDecoder.decode(
-                                    navBackStackEntry?.arguments?.getString("query")!!,
-                                    "UTF-8"
-                                )
+                                query ?: ""
                             }
                         }
                         onQueryChange(
@@ -757,7 +758,7 @@ class MainActivity : ComponentActivity() {
                     LocalDownloadUtil provides downloadUtil,
                     LocalShimmerTheme provides ShimmerTheme,
                     LocalSyncUtils provides syncUtils,
-                    LocalListenTogetherManager provides listenTogetherManager,
+                    // LocalListenTogetherManager provides listenTogetherManager,
                 ) {
 
                     Scaffold(
@@ -859,7 +860,7 @@ class MainActivity : ComponentActivity() {
                             
                             val onSearchLongClick: () -> Unit = remember(navController) {
                                 {
-                                    navController.navigate("recognition") {
+                                    navController.navigate(Screens.VoiceSearch.route) {
                                         launchSingleTop = true
                                     }
                                 }
@@ -1127,7 +1128,7 @@ class MainActivity : ComponentActivity() {
         val isListenLink = uri.pathSegments.firstOrNull() == "listen" || uri.host?.equals("listen", ignoreCase = true) == true
         if (!listenCode.isNullOrBlank() && isListenLink) {
             val username = dataStore.get(ListenTogetherUsernameKey, "").ifBlank { "Guest" }
-            listenTogetherManager.joinRoom(listenCode, username)
+            // listenTogetherManager.joinRoom(listenCode, username)
             return
         }
 
@@ -1227,5 +1228,4 @@ val LocalPlayerConnection = staticCompositionLocalOf<PlayerConnection?> { error(
 val LocalPlayerAwareWindowInsets = compositionLocalOf<WindowInsets> { error("No WindowInsets provided") }
 val LocalDownloadUtil = staticCompositionLocalOf<DownloadUtil> { error("No DownloadUtil provided") }
 val LocalSyncUtils = staticCompositionLocalOf<SyncUtils> { error("No SyncUtils provided") }
-val LocalListenTogetherManager = staticCompositionLocalOf<com.metrolist.music.listentogether.ListenTogetherManager?> { null }
 val LocalIsPlayerExpanded = compositionLocalOf { false }
