@@ -23,6 +23,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.metrolist.music.R
+import com.metrolist.music.LocalPlayerConnection
 import com.metrolist.music.ui.screens.Screens
 import java.net.URLEncoder
 import java.util.Locale
@@ -30,10 +31,12 @@ import java.util.Locale
 @Composable
 fun VoiceSearchScreen(navController: NavHostController) {
     val context = LocalContext.current
+    val playerConnection = LocalPlayerConnection.current
     var isListening by remember { mutableStateOf(false) }
     var voiceValue by remember { mutableStateOf(0f) }
     var statusText by remember { mutableStateOf("In ascolto...") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var wasPlayingBeforeVoiceSearch by remember { mutableStateOf(false) }
 
     // Inizializziamo lo SpeechRecognizer con controlli di sicurezza
     val speechRecognizer = remember { 
@@ -71,6 +74,14 @@ fun VoiceSearchScreen(navController: NavHostController) {
             return@DisposableEffect onDispose {}
         }
 
+        // Memorizziamo lo stato di riproduzione prima di iniziare la ricerca vocale
+        wasPlayingBeforeVoiceSearch = playerConnection?.player?.isPlaying == true
+        
+        // Mettiamo in pausa la musica se sta riproducendo
+        if (wasPlayingBeforeVoiceSearch) {
+            playerConnection?.player?.pause()
+        }
+
         // Chiediamo il permesso del microfono
         permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
 
@@ -91,10 +102,27 @@ fun VoiceSearchScreen(navController: NavHostController) {
             override fun onBufferReceived(buffer: ByteArray?) {}
             override fun onEndOfSpeech() { isListening = false }
             override fun onError(error: Int) {
-                // Se c'è un errore (es. nessun suono), torniamo indietro
+                isListening = false
+                errorMessage = when (error) {
+                    SpeechRecognizer.ERROR_AUDIO -> "Errore audio"
+                    SpeechRecognizer.ERROR_CLIENT -> "Errore client"
+                    SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Permesso microfono mancante"
+                    SpeechRecognizer.ERROR_NETWORK -> "Errore di rete"
+                    SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "Timeout di rete"
+                    SpeechRecognizer.ERROR_NO_MATCH -> "Nessuna corrispondenza trovata"
+                    SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "Riconoscitore occupato"
+                    SpeechRecognizer.ERROR_SERVER -> "Errore del server"
+                    SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "Nessun parlato rilevato"
+                    else -> "Errore sconosciuto ($error)"
+                }
+                // Ripristiniamo la riproduzione in caso di errore
+                if (wasPlayingBeforeVoiceSearch) {
+                    playerConnection?.player?.play()
+                }
                 navController.popBackStack()
             }
             override fun onResults(results: Bundle?) {
+                isListening = false
                 val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                 val text = matches?.get(0) ?: ""
                 if (text.isNotEmpty()) {
@@ -106,6 +134,10 @@ fun VoiceSearchScreen(navController: NavHostController) {
                     }
                     // Also set the search query in the search screen
                     navController.currentBackStackEntry?.savedStateHandle?.set("query", text)
+                }
+                // Ripristiniamo la riproduzione dopo aver ottenuto i risultati
+                if (wasPlayingBeforeVoiceSearch) {
+                    playerConnection?.player?.play()
                 }
             }
             override fun onPartialResults(partialResults: Bundle?) {
@@ -134,6 +166,11 @@ fun VoiceSearchScreen(navController: NavHostController) {
                 speechRecognizer?.destroy()
             } catch (e: Exception) {
                 // Ignora errori durante la pulizia
+            }
+            
+            // Ripristiniamo la riproduzione quando si esce dalla schermata
+            if (wasPlayingBeforeVoiceSearch) {
+                playerConnection?.player?.play()
             }
         }
     }
