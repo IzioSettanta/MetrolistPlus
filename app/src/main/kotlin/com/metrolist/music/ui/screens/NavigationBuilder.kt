@@ -100,13 +100,13 @@ fun NavGraphBuilder.navigationBuilder(
     }
 
     composable(Screens.ListenTogether.route) {
-        ListenTogetherScreen(navController, showTopBar = false)
+        // ListenTogetherScreen(navController, showTopBar = false)
     }
 
     composable(
         route = "listen_together_from_topbar",
     ) {
-        ListenTogetherScreen(navController, showTopBar = true)
+        // ListenTogetherScreen(navController, showTopBar = true)
     }
 
     composable("history") {

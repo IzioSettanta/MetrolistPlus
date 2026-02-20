@@ -217,8 +217,8 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var syncUtils: SyncUtils
 
-    @Inject
-    lateinit var listenTogetherManager: com.metrolist.music.listentogether.ListenTogetherManager
+    // @Inject
+    // lateinit var listenTogetherManager: com.metrolist.music.listentogether.ListenTogetherManager
 
     private lateinit var navController: NavHostController
     private var pendingIntent: Intent? = null
@@ -233,7 +233,7 @@ class MainActivity : ComponentActivity() {
                     playerConnection = PlayerConnection(this@MainActivity, service, database, lifecycleScope)
                     Timber.tag("MainActivity").d("PlayerConnection created successfully")
                     // Connect Listen Together manager to player
-                    listenTogetherManager.setPlayerConnection(playerConnection)
+                    // listenTogetherManager.setPlayerConnection(playerConnection)
                 } catch (e: Exception) {
                     Timber.tag("MainActivity").e(e, "Failed to create PlayerConnection")
                     // Retry after a delay of 500ms
@@ -241,7 +241,7 @@ class MainActivity : ComponentActivity() {
                         delay(500)
                         try {
                             playerConnection = PlayerConnection(this@MainActivity, service, database, lifecycleScope)
-                            listenTogetherManager.setPlayerConnection(playerConnection)
+                            // listenTogetherManager.setPlayerConnection(playerConnection)
                         } catch (e2: Exception) {
                             Timber.tag("MainActivity").e(e2, "Failed to create PlayerConnection on retry")
                         }
@@ -252,7 +252,7 @@ class MainActivity : ComponentActivity() {
 
         override fun onServiceDisconnected(name: ComponentName?) {
             // Disconnect Listen Together manager
-            listenTogetherManager.setPlayerConnection(null)
+            // listenTogetherManager.setPlayerConnection(null)
             playerConnection?.dispose()
             playerConnection = null
         }
@@ -311,7 +311,7 @@ class MainActivity : ComponentActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
         // Initialize Listen Together manager
-        listenTogetherManager.initialize()
+        // listenTogetherManager.initialize()
 
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
             val locale = dataStore[AppLanguageKey]

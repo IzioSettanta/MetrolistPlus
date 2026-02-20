@@ -222,7 +222,6 @@ object YTPlayerUtils {
 
                 // Skip NewPipe - use direct URLs or custom cipher in findUrlOrNull
                 val responseToUse = streamPlayerResponse
->>>>>>> upstream/main
 
                 format =
                     findFormat(
@@ -525,7 +524,6 @@ object YTPlayerUtils {
             Timber.tag(logTag).d("Stream URL obtained via NewPipe deobfuscation")
             return deobfuscatedUrl
         }
->>>>>>> upstream/main
 
         // Fallback: try to get URL from StreamInfo (temporarily disabled due to compatibility issues)
         Timber.tag(logTag).d("StreamInfo fallback disabled due to compatibility issues")

@@ -292,12 +292,10 @@
     <string name="voice_search">Ricerca Vocale</string>
     <string name="voice_search_title">Ricerca Vocale</string>
     <string name="voice_search_prompt">Dimmi cosa cercare</string>
-    <string name="listening">Ascolto in corso...</string>
     <string name="speak_now">Parla ora</string>
     <string name="tap_to_speak">Tocca il microfono per parlare</string>
     <string name="start_voice_search">Avvia Ricerca Vocale</string>
     <string name="recognized_text">Hai detto: %s</string>
-
 
 
 </resources>

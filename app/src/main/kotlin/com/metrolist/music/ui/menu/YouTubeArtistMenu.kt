@@ -57,8 +57,9 @@ fun YouTubeArtistMenu(
     val database = LocalDatabase.current
     val playerConnection = LocalPlayerConnection.current ?: return
     val libraryArtist by database.artist(artist.id).collectAsState(initial = null)
-    val listenTogetherManager = LocalListenTogetherManager.current
-    val isGuest = listenTogetherManager?.isInRoom == true && !listenTogetherManager.isHost
+    // val listenTogetherManager = LocalListenTogetherManager.current
+    // val isGuest = listenTogetherManager?.isInRoom == true && !listenTogetherManager.isHost
+    val isGuest = false // ListenTogether temporarily disabled
     val isPinned by database.speedDialDao.isPinned(artist.id).collectAsState(initial = false)
     val coroutineScope = rememberCoroutineScope()
 
