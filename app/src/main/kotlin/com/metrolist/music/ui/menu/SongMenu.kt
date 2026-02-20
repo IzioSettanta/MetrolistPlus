@@ -75,6 +75,7 @@ import com.metrolist.music.constants.ListItemHeight
 import com.metrolist.music.constants.ListThumbnailSize
 import com.metrolist.music.db.entities.ArtistEntity
 import com.metrolist.music.db.entities.Event
+import com.metrolist.music.db.entities.SpeedDialItem
 import com.metrolist.music.db.entities.PlaylistSong
 import com.metrolist.music.db.entities.Song
 import com.metrolist.music.extensions.toMediaItem
@@ -124,6 +125,8 @@ fun SongMenu(
         animationSpec = tween(durationMillis = 800),
         label = "",
     )
+
+    val isPinned by database.speedDialDao.isPinned(song.id).collectAsState(initial = false)
 
     val orderedArtists by produceState(initialValue = emptyList<ArtistEntity>(), song) {
         withContext(Dispatchers.IO) {
@@ -444,6 +447,40 @@ fun SongMenu(
         item {
             Material3MenuGroup(
                 items = buildList {
+                    add(
+                        Material3MenuItemData(
+                            title = { 
+                                Text(
+                                    text = if (isPinned) "Unpin from Speed dial" else "Pin to Speed dial" 
+                                ) 
+                            },
+                            icon = {
+                                Icon(
+                                    painter = painterResource(if (isPinned) R.drawable.remove else R.drawable.add),
+                                    contentDescription = null,
+                                )
+                            },
+                            onClick = {
+                                coroutineScope.launch(Dispatchers.IO) {
+                                    if (isPinned) {
+                                        database.speedDialDao.delete(song.id)
+                                    } else {
+                                        database.speedDialDao.insert(
+                                            SpeedDialItem(
+                                                id = song.id,
+                                                title = song.song.title,
+                                                subtitle = song.artists.joinToString(", ") { it.name },
+                                                thumbnailUrl = song.song.thumbnailUrl,
+                                                type = "SONG",
+                                                explicit = song.song.explicit
+                                            )
+                                        )
+                                    }
+                                }
+                                onDismiss()
+                            }
+                        )
+                    )
                     add(
                         Material3MenuItemData(
                             title = {

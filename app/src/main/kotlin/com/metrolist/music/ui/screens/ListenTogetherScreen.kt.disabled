@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -53,7 +54,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButton as MaterialIconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -62,6 +63,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -89,6 +91,7 @@ import com.metrolist.music.LocalListenTogetherManager
 import com.metrolist.music.LocalPlayerAwareWindowInsets
 import com.metrolist.music.R
 import com.metrolist.music.constants.AppBarHeight
+import com.metrolist.music.constants.ListenTogetherInTopBarKey
 import com.metrolist.music.constants.ListenTogetherUsernameKey
 import com.metrolist.music.listentogether.ConnectionState
 import com.metrolist.music.listentogether.JoinRequestPayload
@@ -96,13 +99,16 @@ import com.metrolist.music.listentogether.ListenTogetherEvent
 import com.metrolist.music.listentogether.RoomRole
 import com.metrolist.music.listentogether.SuggestionReceivedPayload
 import com.metrolist.music.listentogether.UserInfo
+import com.metrolist.music.ui.component.IconButton
+import com.metrolist.music.ui.utils.backToMain
 import com.metrolist.music.utils.rememberPreference
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun ListenTogetherScreen(
-    navController: NavController
+    navController: NavController,
+    showTopBar: Boolean = false
 ) {
     val context = LocalContext.current
     val listenTogetherManager = LocalListenTogetherManager.current
@@ -119,6 +125,9 @@ fun ListenTogetherScreen(
     val pendingJoinRequests by listenTogetherManager.pendingJoinRequests.collectAsState()
     val pendingSuggestions by listenTogetherManager.pendingSuggestions.collectAsState()
 
+    val (listenTogetherInTopBar) = rememberPreference(ListenTogetherInTopBarKey, defaultValue = true)
+    val shouldShowTopBar = showTopBar || listenTogetherInTopBar
+    
     var savedUsername by rememberPreference(ListenTogetherUsernameKey, "")
     var roomCodeInput by rememberSaveable { mutableStateOf("") }
     var usernameInput by rememberSaveable { mutableStateOf(savedUsername) }
@@ -224,7 +233,8 @@ fun ListenTogetherScreen(
         state = lazyListState,
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
+            .background(MaterialTheme.colorScheme.background)
+            .imePadding(),
         contentPadding = PaddingValues(
             start = 16.dp,
             end = 16.dp,
@@ -235,7 +245,7 @@ fun ListenTogetherScreen(
     ) {
         // Header
         item {
-            HeaderSection()
+            HeaderSection(isInRoom = isInRoom)
         }
 
         // Connection status card
@@ -345,6 +355,7 @@ fun ListenTogetherScreen(
                     isJoiningRoom = isJoiningRoom,
                     joinErrorMessage = joinErrorMessage,
                     waitingForApprovalText = waitingForApprovalText,
+                    bringIntoViewRequester = bringIntoViewRequester,
                     onCreateRoom = {
                         val username = usernameInput.takeIf { it.isNotBlank() } ?: savedUsername
                         val finalUsername = username.trim()
@@ -379,22 +390,38 @@ fun ListenTogetherScreen(
                             Toast.makeText(context, R.string.error_username_empty, Toast.LENGTH_SHORT).show()
                         }
                     },
-                    connectionState = connectionState,
                     onFieldFocused = {
                         coroutineScope.launch {
-                            lazyListState.animateScrollToItem(3)
+                            bringIntoViewRequester.bringIntoView()
                         }
                     }
                 )
             }
-
-            // Settings link
-            item {
-                SettingsLinkCard(
-                    onClick = { navController.navigate("settings/integrations/listen_together") }
-                )
-            }
         }
+
+        // Settings link
+        item {
+            SettingsLinkCard(
+                onClick = { navController.navigate("settings/integrations/listen_together") }
+            )
+        }
+    }
+
+    if (shouldShowTopBar) {
+        TopAppBar(
+            title = { Text(stringResource(R.string.together)) },
+            navigationIcon = {
+                IconButton(
+                    onClick = navController::navigateUp,
+                    onLongClick = navController::backToMain
+                ) {
+                    Icon(
+                        painterResource(R.drawable.arrow_back),
+                        contentDescription = null
+                    )
+                }
+            }
+        )
     }
 }
 
@@ -433,7 +460,9 @@ private fun NotConfiguredContent() {
 }
 
 @Composable
-private fun HeaderSection() {
+private fun HeaderSection(isInRoom: Boolean = false) {
+    if (isInRoom) return
+    
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -446,7 +475,7 @@ private fun HeaderSection() {
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                painter = painterResource(R.drawable.group),
+                painter = painterResource(R.drawable.group_outlined),
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onPrimaryContainer,
                 modifier = Modifier.size(48.dp)
@@ -885,7 +914,7 @@ private fun PendingJoinRequestsSection(
                         fontWeight = FontWeight.Medium,
                         modifier = Modifier.weight(1f)
                     )
-                    IconButton(onClick = { onApprove(request.userId) }) {
+                    MaterialIconButton(onClick = { onApprove(request.userId) }) {
                         Icon(
                             painter = painterResource(R.drawable.check),
                             contentDescription = stringResource(R.string.approve),
@@ -893,7 +922,7 @@ private fun PendingJoinRequestsSection(
                             modifier = Modifier.size(24.dp)
                         )
                     }
-                    IconButton(onClick = { onReject(request.userId) }) {
+                    MaterialIconButton(onClick = { onReject(request.userId) }) {
                         Icon(
                             painter = painterResource(R.drawable.close),
                             contentDescription = stringResource(R.string.reject),
@@ -961,7 +990,7 @@ private fun PendingSuggestionsSection(
                             overflow = TextOverflow.Ellipsis
                         )
                     }
-                    IconButton(onClick = { onApprove(suggestion.suggestionId) }) {
+                    MaterialIconButton(onClick = { onApprove(suggestion.suggestionId) }) {
                         Icon(
                             painter = painterResource(R.drawable.check),
                             contentDescription = stringResource(R.string.approve),
@@ -969,7 +998,7 @@ private fun PendingSuggestionsSection(
                             modifier = Modifier.size(24.dp)
                         )
                     }
-                    IconButton(onClick = { onReject(suggestion.suggestionId) }) {
+                    MaterialIconButton(onClick = { onReject(suggestion.suggestionId) }) {
                         Icon(
                             painter = painterResource(R.drawable.close),
                             contentDescription = stringResource(R.string.reject),
@@ -993,9 +1022,9 @@ private fun JoinCreateRoomSection(
     isJoiningRoom: Boolean,
     joinErrorMessage: String?,
     waitingForApprovalText: String,
+    bringIntoViewRequester: BringIntoViewRequester,
     onCreateRoom: () -> Unit,
     onJoinRoom: () -> Unit,
-    connectionState: ConnectionState,
     onFieldFocused: () -> Unit = {}
 ) {
     Card(
@@ -1027,7 +1056,7 @@ private fun JoinCreateRoomSection(
                 },
                 trailingIcon = {
                     if (usernameInput.isNotBlank()) {
-                        IconButton(onClick = { onUsernameChange("") }) {
+                        MaterialIconButton(onClick = { onUsernameChange("") }) {
                             Icon(painterResource(R.drawable.close), null)
                         }
                     }
@@ -1060,7 +1089,7 @@ private fun JoinCreateRoomSection(
                 },
                 trailingIcon = {
                     if (roomCodeInput.isNotBlank()) {
-                        IconButton(onClick = { onRoomCodeChange("") }) {
+                        MaterialIconButton(onClick = { onRoomCodeChange("") }) {
                             Icon(painterResource(R.drawable.close), null)
                         }
                     }
@@ -1075,6 +1104,7 @@ private fun JoinCreateRoomSection(
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
+                    .bringIntoViewRequester(bringIntoViewRequester)
                     .onFocusChanged { if (it.isFocused) onFieldFocused() }
             )
 
@@ -1150,16 +1180,15 @@ private fun JoinCreateRoomSection(
             }
 
             // Action buttons
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally)
-            ) {
-                // Create Room button
+            val hasUsername = usernameInput.trim().isNotBlank() || savedUsername.isNotBlank()
+            val hasRoomCode = roomCodeInput.length == 8
+            
+            // Create Room button - visible when username is provided
+            AnimatedVisibility(visible = hasUsername && !hasRoomCode) {
                 Button(
                     onClick = onCreateRoom,
-                    modifier = Modifier.weight(1f),
-                    enabled = (usernameInput.trim().isNotBlank() || savedUsername.isNotBlank()) &&
-                            connectionState == ConnectionState.CONNECTED,
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = hasUsername,
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary
@@ -1173,27 +1202,26 @@ private fun JoinCreateRoomSection(
                     Spacer(Modifier.width(8.dp))
                     Text(stringResource(R.string.create_room), fontWeight = FontWeight.SemiBold)
                 }
+            }
 
-                // Join Room button (visible when room code is complete)
-                AnimatedVisibility(visible = roomCodeInput.length == 8) {
-                    Button(
-                        onClick = onJoinRoom,
-                        modifier = Modifier.weight(1f),
-                        enabled = (usernameInput.trim().isNotBlank() || savedUsername.isNotBlank()) &&
-                                connectionState == ConnectionState.CONNECTED,
-                        shape = RoundedCornerShape(16.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.tertiary
-                        )
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.login),
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(stringResource(R.string.join_room), fontWeight = FontWeight.SemiBold)
-                    }
+            // Join Room button - visible when username and room code are provided
+            AnimatedVisibility(visible = hasUsername && hasRoomCode) {
+                Button(
+                    onClick = onJoinRoom,
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = hasUsername && hasRoomCode,
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.tertiary
+                    )
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.login),
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.join_room), fontWeight = FontWeight.SemiBold)
                 }
             }
         }

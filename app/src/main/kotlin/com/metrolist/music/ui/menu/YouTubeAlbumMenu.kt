@@ -65,6 +65,7 @@ import com.metrolist.music.LocalPlayerConnection
 import com.metrolist.music.R
 import com.metrolist.music.constants.ListItemHeight
 import com.metrolist.music.constants.ListThumbnailSize
+import com.metrolist.music.db.entities.SpeedDialItem
 import com.metrolist.music.db.entities.Song
 import com.metrolist.music.extensions.toMediaItem
 import com.metrolist.music.playback.ExoDownloadService
@@ -94,6 +95,7 @@ fun YouTubeAlbumMenu(
     val playerConnection = LocalPlayerConnection.current ?: return
     val isGuest = false // ListenTogether temporarily disabled
     val album by database.albumWithSongs(albumItem.id).collectAsState(initial = null)
+    val isPinned by database.speedDialDao.isPinned(albumItem.id).collectAsState(initial = false)
     val coroutineScope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
@@ -393,6 +395,29 @@ fun YouTubeAlbumMenu(
                         },
                         onClick = {
                             showChoosePlaylistDialog = true
+                        }
+                    ),
+                    Material3MenuItemData(
+                        title = { 
+                            Text(
+                                text = if (isPinned) "Unpin from Speed dial" else "Pin to Speed dial" 
+                            ) 
+                        },
+                        icon = {
+                            Icon(
+                                painter = painterResource(if (isPinned) R.drawable.remove else R.drawable.add),
+                                contentDescription = null,
+                            )
+                        },
+                        onClick = {
+                            coroutineScope.launch(Dispatchers.IO) {
+                                if (isPinned) {
+                                    database.speedDialDao.delete(albumItem.id)
+                                } else {
+                                    database.speedDialDao.insert(SpeedDialItem.fromYTItem(albumItem))
+                                }
+                            }
+                            onDismiss()
                         }
                     )
                 )

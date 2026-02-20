@@ -31,6 +31,7 @@ import com.metrolist.music.di.ApplicationScope
 import com.metrolist.music.extensions.toEnum
 import com.metrolist.music.extensions.toInetSocketAddress
 import com.metrolist.music.utils.CrashHandler
+import com.metrolist.music.utils.cipher.CipherDeobfuscator
 import com.metrolist.music.utils.dataStore
 import com.metrolist.music.utils.reportException
 import dagger.hilt.android.HiltAndroidApp
@@ -59,10 +60,13 @@ class App : Application(), SingletonImageLoader.Factory {
 
     override fun onCreate() {
         super.onCreate()
-        
+
         // Install crash handler first
         CrashHandler.install(this)
-        
+
+        // Initialize cipher deobfuscator for WEB_REMIX streaming
+        CipherDeobfuscator.initialize(this)
+
         Timber.plant(Timber.DebugTree())
 
         // تهيئة إعدادات التطبيق عند الإقلاع
@@ -191,6 +195,30 @@ class App : Application(), SingletonImageLoader.Factory {
                     }
                 }
         }
+
+        applicationScope.launch(Dispatchers.IO) {
+            dataStore.data
+                .map { Triple(it[ContentCountryKey], it[ContentLanguageKey], it[AppLanguageKey]) }
+                .distinctUntilChanged()
+                .collect { (contentCountry, contentLanguage, appLanguage) ->
+                    val systemLocale = Locale.getDefault()
+                    val effectiveAppLocale = appLanguage
+                        ?.takeUnless { it == SYSTEM_DEFAULT }
+                        ?.let { Locale.forLanguageTag(it) }
+                        ?: systemLocale
+
+                    YouTube.locale = YouTubeLocale(
+                        gl = contentCountry?.takeIf { it != SYSTEM_DEFAULT }
+                            ?: effectiveAppLocale.country.takeIf { it in CountryCodeToName }
+                            ?: systemLocale.country.takeIf { it in CountryCodeToName }
+                            ?: "US",
+                        hl = contentLanguage?.takeIf { it != SYSTEM_DEFAULT }
+                            ?: effectiveAppLocale.toLanguageTag().takeIf { it in LanguageCodeToName }
+                            ?: effectiveAppLocale.language.takeIf { it in LanguageCodeToName }
+                            ?: "en"
+                    )
+                }
+        }
     }
 
     override fun newImageLoader(context: PlatformContext): ImageLoader {
@@ -221,6 +249,10 @@ class App : Application(), SingletonImageLoader.Factory {
 
     companion object {
         suspend fun forgetAccount(context: Context) {
+            Timber.d("forgetAccount: Starting logout process")
+
+            // Clear DataStore preferences
+            Timber.d("forgetAccount: Clearing DataStore preferences")
             context.dataStore.edit { settings ->
                 settings.remove(InnerTubeCookieKey)
                 settings.remove(VisitorDataKey)
@@ -229,6 +261,27 @@ class App : Application(), SingletonImageLoader.Factory {
                 settings.remove(AccountEmailKey)
                 settings.remove(AccountChannelHandleKey)
             }
+            Timber.d("forgetAccount: DataStore preferences cleared")
+
+            // Immediately clear YouTube object's auth state
+            Timber.d("forgetAccount: Clearing YouTube object auth state")
+            Timber.d("forgetAccount: Before - cookie=${YouTube.cookie?.take(50)}, visitorData=${YouTube.visitorData?.take(20)}, dataSyncId=${YouTube.dataSyncId?.take(20)}")
+            YouTube.cookie = null
+            YouTube.visitorData = null
+            YouTube.dataSyncId = null
+            Timber.d("forgetAccount: After - cookie=${YouTube.cookie}, visitorData=${YouTube.visitorData}, dataSyncId=${YouTube.dataSyncId}")
+
+            // Clear WebView cookies to prevent auto-relogin
+            Timber.d("forgetAccount: Clearing WebView CookieManager")
+            withContext(Dispatchers.Main) {
+                android.webkit.CookieManager.getInstance().apply {
+                    removeAllCookies { removed ->
+                        Timber.d("forgetAccount: CookieManager.removeAllCookies callback: removed=$removed")
+                    }
+                    flush()
+                }
+            }
+            Timber.d("forgetAccount: Logout process complete")
         }
     }
 }

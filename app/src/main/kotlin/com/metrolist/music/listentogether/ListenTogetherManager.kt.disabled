@@ -47,6 +47,15 @@ class ListenTogetherManager @Inject constructor(
 ) {
     companion object {
         private const val TAG = "ListenTogetherManager"
+        // Debounce threshold for playback syncs - prevents excessive seeking/pausing
+        // Increased from 200ms to 1000ms to reduce choppy audio for guests
+        private const val SYNC_DEBOUNCE_THRESHOLD_MS = 1000L
+        // Position tolerance - only seek if difference exceeds this (prevents micro-adjustments)
+        // Increased from 500ms to 2000ms to reduce unnecessary seeks that interrupt playback
+        private const val POSITION_TOLERANCE_MS = 2000L
+        // Large position tolerance - only seek during playback if difference exceeds this
+        // This prevents interrupting active playback for small drifts
+        private const val PLAYBACK_POSITION_TOLERANCE_MS = 3000L
     }
 
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
@@ -76,11 +85,18 @@ class ListenTogetherManager @Inject constructor(
     private var lastSyncedIsPlaying: Boolean? = null
     private var lastSyncedTrackId: String? = null
     
+    // Track last sync action time for debouncing (prevents excessive seeking/pausing)
+    private var lastSyncActionTime: Long = 0L
+    
     // Track ID being buffered
     private var bufferingTrackId: String? = null
     
     // Track active sync job to cancel it if a better update arrives
     private var activeSyncJob: Job? = null
+    
+    // Generation ID for track changes - incremented on each new track change
+    // Used to prevent old coroutines from overwriting newer track loads
+    private var currentTrackGeneration: Int = 0
 
     // Pending sync to apply after buffering completes for guest
     private var pendingSyncState: SyncStatePayload? = null
@@ -424,6 +440,8 @@ class ListenTogetherManager @Inject constructor(
             
             is ListenTogetherEvent.JoinApproved -> {
                 Timber.tag(TAG).d("Join approved for room: ${event.roomCode}")
+                // Save current mute state before joining as guest so we can restore it on leave
+                saveMuteStateOnJoin()
                 // Apply the full initial state including queue
                 applyPlaybackState(
                     currentTrack = event.state.currentTrack,
@@ -672,6 +690,8 @@ class ListenTogetherManager @Inject constructor(
         isSyncing = false
         bufferCompleteReceivedForTrack = null
         lastRole = RoomRole.NONE
+        lastSyncActionTime = 0L  // Reset sync debouncing
+        ++currentTrackGeneration  // Increment to invalidate any pending track-change coroutines
     }
 
     private fun updateGuestMuteState() {
@@ -680,11 +700,41 @@ class ListenTogetherManager @Inject constructor(
         // Just restore any previously forced mute state (should typically be none)
         restoreGuestMuteState()
     }
-
-    private fun restoreGuestMuteState() {
-        if (!muteForcedByPreference) return
+    
+    /**
+     * Save the current mute state when joining a room as guest.
+     * This allows us to restore it when leaving the room.
+     */
+    private fun saveMuteStateOnJoin() {
         val connection = playerConnection ?: return
-        connection.setMuted(previousMuteState ?: false)
+        // Only save if we haven't already saved (avoid overwriting on role changes)
+        if (previousMuteState == null) {
+            previousMuteState = connection.isMuted.value
+            Timber.tag(TAG).d("Saved mute state on join: ${previousMuteState}")
+        }
+    }
+
+    /**
+     * Restore the mute state that was saved when joining the room.
+     * This is called when leaving the room to ensure the user's
+     * mute preference is restored to what it was before joining Listen Together.
+     */
+    private fun restoreGuestMuteState() {
+        val connection = playerConnection ?: return
+        val savedState = previousMuteState
+        
+        if (savedState != null) {
+            Timber.tag(TAG).d("Restoring mute state on leave: was muted=$savedState, currently muted=${connection.isMuted.value}")
+            connection.setMuted(savedState)
+        } else {
+            // No saved state means we never properly saved (e.g., player wasn't ready on join)
+            // In this case, if currently muted, unmute as a fallback
+            if (connection.isMuted.value) {
+                Timber.tag(TAG).d("No saved mute state on leave, unmuting player as fallback")
+                connection.setMuted(false)
+            }
+        }
+        
         previousMuteState = null
         muteForcedByPreference = false
     }
@@ -710,13 +760,25 @@ class ListenTogetherManager @Inject constructor(
         isSyncing = true
 
         val targetPos = pending.position
-        if (kotlin.math.abs(player.currentPosition - targetPos) > 100) {
+        val posDiff = kotlin.math.abs(player.currentPosition - targetPos)
+        val willPlay = pending.isPlaying
+        
+        // Use appropriate tolerance based on whether we're about to play
+        val tolerance = if (willPlay && player.playWhenReady) PLAYBACK_POSITION_TOLERANCE_MS else POSITION_TOLERANCE_MS
+        
+        if (posDiff > tolerance) {
+            Timber.tag(TAG).d("Applying pending sync: seeking ${player.currentPosition} -> $targetPos (diff ${posDiff}ms > ${tolerance}ms)")
             connection.seekTo(targetPos)
+        } else {
+            Timber.tag(TAG).d("Applying pending sync: skipping seek (diff ${posDiff}ms < ${tolerance}ms)")
         }
 
-        if (pending.isPlaying) {
+        // Apply play/pause state only if it needs to change
+        if (willPlay && !player.playWhenReady) {
+            Timber.tag(TAG).d("Applying pending sync: starting playback")
             connection.play()
-        } else {
+        } else if (!willPlay && player.playWhenReady) {
+            Timber.tag(TAG).d("Applying pending sync: pausing playback")
             connection.pause()
         }
 
@@ -751,7 +813,7 @@ class ListenTogetherManager @Inject constructor(
                         basePos + kotlin.math.max(0L, now - serverTime)
                     } ?: basePos
 
-                    Timber.tag(TAG).d("Guest: PLAY at position $adjustedPos")
+                    Timber.tag(TAG).d("Guest: PLAY at position $adjustedPos, currently playing=${player.playWhenReady}")
 
                     if (bufferingTrackId != null) {
                         pendingSyncState = (pendingSyncState ?: SyncStatePayload(
@@ -768,49 +830,109 @@ class ListenTogetherManager @Inject constructor(
                         return
                     }
 
-                    // Seek first for precision, then play
-                    if (kotlin.math.abs(player.currentPosition - adjustedPos) > 100) {
-                        connection.seekTo(adjustedPos)
+                    // Debounce PLAY actions when already playing and in sync
+                    val posDiff = kotlin.math.abs(player.currentPosition - adjustedPos)
+                    val alreadyPlaying = player.playWhenReady
+                    
+                    if (alreadyPlaying && posDiff < POSITION_TOLERANCE_MS && (now - lastSyncActionTime) < SYNC_DEBOUNCE_THRESHOLD_MS) {
+                        Timber.tag(TAG).d("Guest: PLAY debounced - already playing and in sync (diff ${posDiff}ms)")
+                        return
                     }
-                    // Start playback immediately for tighter sync
-                    connection.play()
+
+                    // CRITICAL: Only seek during active playback if position is VERY far off
+                    // This prevents interrupting the audio for small drifts
+                    if (alreadyPlaying) {
+                        if (posDiff > PLAYBACK_POSITION_TOLERANCE_MS) {
+                            Timber.tag(TAG).d("Guest: PLAY seeking during playback ${player.currentPosition} -> $adjustedPos (diff ${posDiff}ms)")
+                            connection.seekTo(adjustedPos)
+                        } else {
+                            Timber.tag(TAG).d("Guest: PLAY skipping seek - already playing, drift acceptable (${posDiff}ms < ${PLAYBACK_POSITION_TOLERANCE_MS}ms)")
+                        }
+                    } else {
+                        // When paused/stopped, we can seek more aggressively
+                        if (posDiff > POSITION_TOLERANCE_MS) {
+                            Timber.tag(TAG).d("Guest: PLAY seeking while paused ${player.currentPosition} -> $adjustedPos (diff ${posDiff}ms)")
+                            connection.seekTo(adjustedPos)
+                        }
+                        // Start playback
+                        Timber.tag(TAG).d("Guest: Starting playback")
+                        connection.play()
+                    }
+                    lastSyncActionTime = now
                 }
                 
                 PlaybackActions.PAUSE -> {
                     val pos = action.position ?: 0L
-                    Timber.tag(TAG).d("Guest: PAUSE at position $pos")
+                    val now = System.currentTimeMillis()
+                    
+                    Timber.tag(TAG).d("Guest: PAUSE at position $pos, currently playing=${player.playWhenReady}")
 
                     if (bufferingTrackId != null) {
                         pendingSyncState = (pendingSyncState ?: SyncStatePayload(
                             currentTrack = roomState.value?.currentTrack,
                             isPlaying = false,
                             position = pos,
-                            lastUpdate = System.currentTimeMillis()
+                            lastUpdate = now
                         )).copy(
                             isPlaying = false,
                             position = pos,
-                            lastUpdate = System.currentTimeMillis()
+                            lastUpdate = now
                         )
                         applyPendingSyncIfReady()
                         return
                     }
 
-                    // Pause first, then seek for accuracy
-                    connection.pause()
-                    if (kotlin.math.abs(player.currentPosition - pos) > 100) {
-                        connection.seekTo(pos)
+                    // Debounce PAUSE actions when already paused and in sync
+                    val posDiff = kotlin.math.abs(player.currentPosition - pos)
+                    val alreadyPaused = !player.playWhenReady
+                    
+                    if (alreadyPaused && posDiff < POSITION_TOLERANCE_MS && (now - lastSyncActionTime) < SYNC_DEBOUNCE_THRESHOLD_MS) {
+                        Timber.tag(TAG).d("Guest: PAUSE debounced - already paused and in sync (diff ${posDiff}ms)")
+                        return
                     }
+
+                    // Pause playback first
+                    if (player.playWhenReady) {
+                        Timber.tag(TAG).d("Guest: Pausing playback")
+                        connection.pause()
+                    }
+                    
+                    // Only seek if position difference is significant
+                    if (posDiff > POSITION_TOLERANCE_MS) {
+                        Timber.tag(TAG).d("Guest: PAUSE seeking ${player.currentPosition} -> $pos (diff ${posDiff}ms)")
+                        connection.seekTo(pos)
+                    } else {
+                        Timber.tag(TAG).d("Guest: PAUSE skipping seek (diff ${posDiff}ms < ${POSITION_TOLERANCE_MS}ms)")
+                    }
+                    lastSyncActionTime = now
                 }
 
                 PlaybackActions.SEEK -> {
                     val pos = action.position ?: 0L
-                    Timber.tag(TAG).d("Guest: SEEK to $pos")
-                    connection.seekTo(pos)
+                    val now = System.currentTimeMillis()
+                    
+                    // Debounce SEEK actions - don't seek if one just happened
+                    if (now - lastSyncActionTime < SYNC_DEBOUNCE_THRESHOLD_MS) {
+                        Timber.tag(TAG).d("Guest: SEEK debounced (only ${now - lastSyncActionTime}ms since last sync)")
+                        return
+                    }
+                    
+                    // Use larger position tolerance
+                    if (kotlin.math.abs(player.currentPosition - pos) > POSITION_TOLERANCE_MS) {
+                        Timber.tag(TAG).d("Guest: SEEK to $pos from ${player.currentPosition} (diff > ${POSITION_TOLERANCE_MS}ms)")
+                        connection.seekTo(pos)
+                        lastSyncActionTime = now
+                    } else {
+                        Timber.tag(TAG).d("Guest: SEEK ignored (position diff < ${POSITION_TOLERANCE_MS}ms)")
+                    }
                 }
                 
                 PlaybackActions.CHANGE_TRACK -> {
                     action.trackInfo?.let { track ->
                         Timber.tag(TAG).d("Guest: CHANGE_TRACK to ${track.title}, queue size=${action.queue?.size}")
+                        
+                        // Reset sync debounce timer on track change - this is a fresh sync cycle
+                        lastSyncActionTime = 0L
                         
                         // If we have a queue, use it! This is the "smart" sync path.
                         if (action.queue != null && action.queue.isNotEmpty()) {
@@ -1003,7 +1125,14 @@ class ListenTogetherManager @Inject constructor(
         // If no track, just pause and clear/set queue
         if (currentTrack == null) {
             Timber.tag(TAG).d("No track in state, pausing")
+            val generation = ++currentTrackGeneration
             scope.launch(Dispatchers.Main) {
+                // Verify we're still on the same track generation (no newer track change arrived)
+                if (currentTrackGeneration != generation) {
+                    Timber.tag(TAG).d("Skipping stale track generation: $generation vs current $currentTrackGeneration")
+                    return@launch
+                }
+                
                 if (playerConnection !== connection) return@launch
                 isSyncing = true
                 connection.allowInternalSync = true
@@ -1026,13 +1155,26 @@ class ListenTogetherManager @Inject constructor(
         }
 
         bufferingTrackId = currentTrack.id
+        val generation = ++currentTrackGeneration
         
         scope.launch(Dispatchers.Main) {
+            // Verify we're still on the same track generation (no newer track change arrived)
+            if (currentTrackGeneration != generation) {
+                Timber.tag(TAG).d("Skipping stale track generation: $generation vs current $currentTrackGeneration (track ${currentTrack.id})")
+                return@launch
+            }
+            
             if (playerConnection !== connection) return@launch
             isSyncing = true
             connection.allowInternalSync = true
 
             try {
+                // Re-verify generation before applying media items (critical section)
+                if (currentTrackGeneration != generation) {
+                    Timber.tag(TAG).d("Stale generation detected before setMediaItems: $generation vs $currentTrackGeneration")
+                    return@launch
+                }
+                
                 // Apply queue/media (same)
                 if (queue != null && queue.isNotEmpty()) {
                     val mediaItems = queue.map { it.toMediaMetadata().toMediaItem() }
@@ -1123,14 +1265,29 @@ class ListenTogetherManager @Inject constructor(
 
         // Track which buffer-complete we expect for this load
         bufferingTrackId = track.id
+        val generation = currentTrackGeneration
         
         activeSyncJob?.cancel()
         activeSyncJob = scope.launch(Dispatchers.IO) {
             try {
+                // Check if a newer track change arrived - skip this load if stale
+                if (currentTrackGeneration != generation) {
+                    Timber.tag(TAG).d("Skipping stale syncToTrack for ${track.id} (generation $generation vs $currentTrackGeneration)")
+                    isSyncing = false
+                    return@launch
+                }
+                
                 // Use YouTube API to play the track by ID
                 YouTube.queue(listOf(track.id)).onSuccess { queue ->
                     Timber.tag(TAG).d("Got queue for track ${track.id}")
                     launch(Dispatchers.Main) {
+                        // Final generation check before applying changes
+                        if (currentTrackGeneration != generation) {
+                            Timber.tag(TAG).d("Skipping stale track application for ${track.id} (generation $generation vs $currentTrackGeneration)")
+                            isSyncing = false
+                            return@launch
+                        }
+                        
                         val connection = playerConnection ?: run {
                             isSyncing = false
                             return@launch
@@ -1158,6 +1315,12 @@ class ListenTogetherManager @Inject constructor(
                         // Wait for player to be ready - monitor actual player state
                         var waitCount = 0
                         while (waitCount < 40) { // Max 2 seconds (40 * 50ms)
+                            // Check generation again while waiting
+                            if (currentTrackGeneration != generation) {
+                                Timber.tag(TAG).d("Generation changed while waiting for player ready - aborting sync for ${track.id}")
+                                isSyncing = false
+                                return@launch
+                            }
                             try {
                                 val player = connection.player
                                 if (player.playbackState == Player.STATE_READY) {

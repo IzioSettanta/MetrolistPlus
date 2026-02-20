@@ -6,9 +6,11 @@
 package com.metrolist.music.ui.screens.settings
 
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
 import android.os.Build
 import androidx.compose.foundation.border
+import androidx.core.content.edit
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
@@ -58,6 +60,8 @@ import com.metrolist.music.R
 import com.metrolist.music.constants.ChipSortTypeKey
 import com.metrolist.music.constants.CropAlbumArtKey
 import com.metrolist.music.constants.DefaultOpenTabKey
+import com.metrolist.music.constants.DensityScale
+import com.metrolist.music.constants.DensityScaleKey
 import com.metrolist.music.constants.DynamicThemeKey
 import com.metrolist.music.constants.EnableDynamicIconKey
 import com.metrolist.music.constants.EnableHighRefreshRateKey
@@ -65,6 +69,7 @@ import com.metrolist.music.constants.GridItemSize
 import com.metrolist.music.constants.GridItemsSizeKey
 import com.metrolist.music.constants.HidePlayerThumbnailKey
 import com.metrolist.music.constants.LibraryFilter
+import com.metrolist.music.constants.ListenTogetherInTopBarKey
 import com.metrolist.music.constants.LyricsAnimationStyle
 import com.metrolist.music.constants.LyricsAnimationStyleKey
 import com.metrolist.music.constants.LyricsClickKey
@@ -230,6 +235,30 @@ fun AppearanceSettings(
     val (slimNav, onSlimNavChange) = rememberPreference(
         SlimNavBarKey,
         defaultValue = false
+    )
+
+    // Density scale preferences
+    val context = activity as Context
+    val sharedPreferences = remember { context.getSharedPreferences("metrolist_settings", Context.MODE_PRIVATE) }
+    val prefDensityScale = remember(sharedPreferences) {
+        sharedPreferences.getFloat("density_scale_factor", 1.0f)
+    }
+    val (densityScale, setDensityScale) = rememberPreference(DensityScaleKey, defaultValue = prefDensityScale)
+    var showRestartDialog by rememberSaveable { mutableStateOf(false) }
+    var showDensityScaleDialog by rememberSaveable { mutableStateOf(false) }
+
+    val onDensityScaleChange: (Float) -> Unit = { newScale ->
+        setDensityScale(newScale)
+        // Write to SharedPreferences for DensityScaler to read on next startup
+        sharedPreferences.edit {
+            putFloat("density_scale_factor", newScale)
+        }
+        showRestartDialog = true
+    }
+
+    val (listenTogetherInTopBar, onListenTogetherInTopBarChange) = rememberPreference(
+        ListenTogetherInTopBarKey,
+        defaultValue = true
     )
 
     val (swipeToSong, onSwipeToSongChange) = rememberPreference(
@@ -587,6 +616,82 @@ fun AppearanceSettings(
                 }
             }
         )
+    }
+
+    if (showRestartDialog) {
+        DefaultDialog(
+            onDismiss = { showRestartDialog = false },
+            buttons = {
+                TextButton(
+                    onClick = { showRestartDialog = false }
+                ) {
+                    Text(text = stringResource(android.R.string.cancel))
+                }
+                TextButton(
+                    onClick = {
+                        showRestartDialog = false
+                        val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                        }
+                        context.startActivity(intent)
+                        Runtime.getRuntime().exit(0)
+                    }
+                ) {
+                    Text(text = stringResource(R.string.restart))
+                }
+            }
+        ) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.restart_required),
+                    style = MaterialTheme.typography.titleLarge
+                )
+                Text(
+                    text = stringResource(R.string.density_restart_message),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+        }
+    }
+
+    if (showDensityScaleDialog) {
+        DefaultDialog(
+            onDismiss = { showDensityScaleDialog = false },
+            buttons = {
+                TextButton(
+                    onClick = { showDensityScaleDialog = false }
+                ) {
+                    Text(text = stringResource(android.R.string.cancel))
+                }
+            }
+        ) {
+            Column {
+                DensityScale.entries.forEach { scale ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                onDensityScaleChange(scale.value)
+                                showDensityScaleDialog = false
+                            }
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = scale.label,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = if (densityScale == scale.value) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurface
+                            }
+                        )
+                    }
+                }
+            }
+        }
     }
 
     if (showSliderOptionDialog) {
@@ -1025,7 +1130,9 @@ fun AppearanceSettings(
                         Text(
                             when (sliderStyle) {
                                 SliderStyle.DEFAULT -> stringResource(R.string.default_)
-                                SliderStyle.WAVY -> stringResource(R.string.wavy)
+                                SliderStyle.WAVY -> if (squigglySlider) stringResource(R.string.squiggly) else stringResource(
+                                    R.string.wavy
+                                )
                                 SliderStyle.SLIM -> stringResource(R.string.slim)
                             }
                         )
@@ -1343,6 +1450,27 @@ fun AppearanceSettings(
                     onClick = { onSlimNavChange(!slimNav) }
                 ),
                 Material3SettingsItem(
+                    icon = painterResource(R.drawable.group_outlined),
+                    title = { Text(stringResource(R.string.listen_together_in_top_bar)) },
+                    description = { Text(stringResource(R.string.listen_together_in_top_bar_desc)) },
+                    trailingContent = {
+                        Switch(
+                            checked = listenTogetherInTopBar,
+                            onCheckedChange = onListenTogetherInTopBarChange,
+                            thumbContent = {
+                                Icon(
+                                    painter = painterResource(
+                                        id = if (listenTogetherInTopBar) R.drawable.check else R.drawable.close
+                                    ),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(SwitchDefaults.IconSize)
+                                )
+                            }
+                        )
+                    },
+                    onClick = { onListenTogetherInTopBarChange(!listenTogetherInTopBar) }
+                ),
+                Material3SettingsItem(
                     icon = painterResource(R.drawable.grid_view),
                     title = { Text(stringResource(R.string.grid_cell_size)) },
                     description = {
@@ -1354,6 +1482,14 @@ fun AppearanceSettings(
                         )
                     },
                     onClick = { showGridSizeDialog = true }
+                ),
+                Material3SettingsItem(
+                    icon = painterResource(R.drawable.grid_view),
+                    title = { Text(stringResource(R.string.display_density)) },
+                    description = {
+                        Text(DensityScale.fromValue(densityScale).label)
+                    },
+                    onClick = { showDensityScaleDialog = true }
                 )
             )
         )
@@ -1442,28 +1578,27 @@ fun AppearanceSettings(
                         )
                     },
                     onClick = { onShowCachedPlaylistChange(!showCachedPlaylist) }
+                ),
+                Material3SettingsItem(
+                    icon = painterResource(R.drawable.backup),
+                    title = { Text(stringResource(R.string.show_uploaded_playlist)) },
+                    trailingContent = {
+                        Switch(
+                            checked = showUploadedPlaylist,
+                            onCheckedChange = onShowUploadedPlaylistChange,
+                            thumbContent = {
+                                Icon(
+                                    painter = painterResource(
+                                        id = if (showUploadedPlaylist) R.drawable.check else R.drawable.close
+                                    ),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(SwitchDefaults.IconSize)
+                                )
+                            }
+                        )
+                    },
+                    onClick = { onShowUploadedPlaylistChange(!showUploadedPlaylist) }
                 )
-                // Uploaded songs feature is temporarily disabled
-                // Material3SettingsItem(
-                //     icon = painterResource(R.drawable.backup),
-                //     title = { Text(stringResource(R.string.show_uploaded_playlist)) },
-                //     trailingContent = {
-                //         Switch(
-                //             checked = showUploadedPlaylist,
-                //             onCheckedChange = onShowUploadedPlaylistChange,
-                //             thumbContent = {
-                //                 Icon(
-                //                     painter = painterResource(
-                //                         id = if (showUploadedPlaylist) R.drawable.check else R.drawable.close
-                //                     ),
-                //                     contentDescription = null,
-                //                     modifier = Modifier.size(SwitchDefaults.IconSize)
-                //                 )
-                //             }
-                //         )
-                //     },
-                //     onClick = { onShowUploadedPlaylistChange(!showUploadedPlaylist) }
-                // )
             )
         )
         Spacer(modifier = Modifier.height(16.dp))

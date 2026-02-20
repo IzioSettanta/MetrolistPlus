@@ -55,7 +55,9 @@ import com.metrolist.music.constants.KeepScreenOn
 import com.metrolist.music.constants.PauseOnMute
 import com.metrolist.music.constants.PersistentQueueKey
 import com.metrolist.music.constants.PersistentShuffleAcrossQueuesKey
+import com.metrolist.music.constants.PreventDuplicateTracksInQueueKey
 import com.metrolist.music.constants.RememberShuffleAndRepeatKey
+import com.metrolist.music.constants.ResumeOnBluetoothConnectKey
 import com.metrolist.music.constants.SeekExtraSeconds
 import com.metrolist.music.constants.ShufflePlaylistFirstKey
 import com.metrolist.music.constants.SimilarContent
@@ -158,12 +160,20 @@ fun PlayerSettings(
         ShufflePlaylistFirstKey,
         defaultValue = false
     )
+    val (preventDuplicateTracksInQueue, onPreventDuplicateTracksInQueueChange) = rememberPreference(
+        PreventDuplicateTracksInQueueKey,
+        defaultValue = false
+    )
     val (stopMusicOnTaskClear, onStopMusicOnTaskClearChange) = rememberPreference(
         StopMusicOnTaskClearKey,
         defaultValue = false
     )
     val (pauseOnMute, onPauseOnMuteChange) = rememberPreference(
         PauseOnMute,
+        defaultValue = false
+    )
+    val (resumeOnBluetoothConnect, onResumeOnBluetoothConnectChange) = rememberPreference(
+        ResumeOnBluetoothConnectKey,
         defaultValue = false
     )
     val (keepScreenOn, onKeepScreenOnChange) = rememberPreference(
@@ -300,8 +310,8 @@ fun PlayerSettings(
                                 Slider(
                                     value = crossfadeDuration,
                                     onValueChange = onCrossfadeDurationChange,
-                                    valueRange = 1f..12f,
-                                    steps = 11
+                                    valueRange = 1f..15f,
+                                    steps = 14
                                 )
                             }
                         }
@@ -654,6 +664,27 @@ fun PlayerSettings(
                     onClick = { onShufflePlaylistFirstChange(!shufflePlaylistFirst) }
                 ),
                 Material3SettingsItem(
+                    icon = painterResource(R.drawable.queue_music),
+                    title = { Text(stringResource(R.string.prevent_duplicate_tracks_in_queue)) },
+                    description = { Text(stringResource(R.string.prevent_duplicate_tracks_in_queue_desc)) },
+                    trailingContent = {
+                        Switch(
+                            checked = preventDuplicateTracksInQueue,
+                            onCheckedChange = onPreventDuplicateTracksInQueueChange,
+                            thumbContent = {
+                                Icon(
+                                    painter = painterResource(
+                                        id = if (preventDuplicateTracksInQueue) R.drawable.check else R.drawable.close
+                                    ),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(SwitchDefaults.IconSize)
+                                )
+                            }
+                        )
+                    },
+                    onClick = { onPreventDuplicateTracksInQueueChange(!preventDuplicateTracksInQueue) }
+                ),
+                Material3SettingsItem(
                     icon = painterResource(R.drawable.skip_next),
                     title = { Text(stringResource(R.string.auto_skip_next_on_error)) },
                     description = { Text(stringResource(R.string.auto_skip_next_on_error_desc)) },
@@ -721,6 +752,26 @@ fun PlayerSettings(
                         )
                     },
                     onClick = { onPauseOnMuteChange(!pauseOnMute) }
+                ),
+                Material3SettingsItem(
+                    icon = painterResource(R.drawable.bluetooth),
+                    title = { Text(stringResource(R.string.resume_on_bluetooth_connect)) },
+                    trailingContent = {
+                        Switch(
+                            checked = resumeOnBluetoothConnect,
+                            onCheckedChange = onResumeOnBluetoothConnectChange,
+                            thumbContent = {
+                                Icon(
+                                    painter = painterResource(
+                                        id = if (resumeOnBluetoothConnect) R.drawable.check else R.drawable.close
+                                    ),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(SwitchDefaults.IconSize)
+                                )
+                            }
+                        )
+                    },
+                    onClick = { onResumeOnBluetoothConnectChange(!resumeOnBluetoothConnect) }
                 ),
                 Material3SettingsItem(
                     icon = painterResource(R.drawable.screenshot),

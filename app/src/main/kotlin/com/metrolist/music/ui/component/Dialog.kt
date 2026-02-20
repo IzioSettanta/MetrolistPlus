@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
@@ -248,7 +249,9 @@ fun ListDialog(
         ) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = modifier.padding(vertical = 24.dp),
+                modifier = modifier
+                    .padding(vertical = 24.dp)
+                    .imePadding(),
             ) {
                 LazyColumn(content = content)
             }
@@ -296,6 +299,7 @@ fun TextFieldDialog(
     onDoneMultiple: ((List<String>) -> Unit)? = null,
 
     onDismiss: () -> Unit,
+    autoDismiss: Boolean = true,
     extraContent: (@Composable () -> Unit)? = null,
 ) {
     val legacyFieldState = remember { mutableStateOf(initialTextFieldValue) }
@@ -325,7 +329,7 @@ fun TextFieldDialog(
             TextButton(
                 enabled = isValid,
                 onClick = {
-                    onDismiss()
+                    if (autoDismiss) onDismiss()
                     if (textFields != null && onDoneMultiple != null) {
                         onDoneMultiple(textFields.map { it.second.text })
                     } else {
@@ -353,14 +357,14 @@ fun TextFieldDialog(
                             imeAction = if (singleLine) ImeAction.Done else ImeAction.None,
                             keyboardType = keyboardType
                         ),
-                        keyboardActions = KeyboardActions(
-                            onDone = {
-                                if (onDoneMultiple != null) {
-                                    onDoneMultiple(textFields.map { it.second.text })
-                                    onDismiss()
-                                }
+                    keyboardActions = KeyboardActions(
+                        onDone = {
+                            if (onDoneMultiple != null) {
+                                onDoneMultiple(textFields.map { it.second.text })
+                                if (autoDismiss) onDismiss()
                             }
-                        ),
+                        }
+                    ),
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(bottom = if (index < textFields.size - 1) 12.dp else 0.dp)
@@ -382,7 +386,7 @@ fun TextFieldDialog(
                     keyboardActions = KeyboardActions(
                         onDone = {
                             onDone(legacyFieldState.value.text)
-                            onDismiss()
+                            if (autoDismiss) onDismiss()
                         }
                     ),
                     modifier = Modifier
