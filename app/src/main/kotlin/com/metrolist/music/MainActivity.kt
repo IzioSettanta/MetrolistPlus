@@ -648,11 +648,15 @@ class MainActivity : ComponentActivity() {
                 LaunchedEffect(navBackStackEntry) {
                     if (inSearchScreen) {
                         val searchQuery = withContext(Dispatchers.IO) {
-                            val rawQuery = navBackStackEntry?.arguments?.getString("query")!!
-                            try {
-                                URLDecoder.decode(rawQuery, "UTF-8")
-                            } catch (e: IllegalArgumentException) {
-                                rawQuery
+                            val rawQuery = navBackStackEntry?.arguments?.getString("query")
+                            if (rawQuery != null) {
+                                try {
+                                    URLDecoder.decode(rawQuery, "UTF-8")
+                                } catch (e: IllegalArgumentException) {
+                                    rawQuery
+                                }
+                            } else {
+                                ""
                             }
                         }
                         onQueryChange(
