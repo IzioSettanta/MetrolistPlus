@@ -439,6 +439,12 @@
     <string name="error_title">Error</string>
     <string name="error_eq_apply_failed">Failed to apply EQ profile: %1$s</string>
 
+    <!-- Loudness Enhancement -->
+    <string name="loudness_enhancement">Loudness enhancement</string>
+    <string name="loudness_enhancement_desc">Enhance audio loudness for better listening experience</string>
+    <string name="loudness_enhancement_gain">Loudness gain</string>
+    <string name="loudness_enhancement_gain_desc">Adjust loudness enhancement level: %1$d dB</string>
+
     <!-- Hardcoded strings -->
     <string name="found_in_settings_content">Found in Settings &gt; Content</string>
     <string name="plays">plays</string>

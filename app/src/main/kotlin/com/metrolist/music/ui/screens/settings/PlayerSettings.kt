@@ -46,6 +46,8 @@ import com.metrolist.music.constants.AutoDownloadOnLikeKey
 import com.metrolist.music.constants.CrossfadeDurationKey
 import com.metrolist.music.constants.CrossfadeEnabledKey
 import com.metrolist.music.constants.CrossfadeGaplessKey
+import com.metrolist.music.constants.LoudnessEnhancementEnabledKey
+import com.metrolist.music.constants.LoudnessEnhancementGainKey
 import com.metrolist.music.constants.AutoLoadMoreKey
 import com.metrolist.music.constants.AutoSkipNextOnErrorKey
 import com.metrolist.music.constants.DisableLoadMoreWhenRepeatAllKey
@@ -183,6 +185,14 @@ fun PlayerSettings(
     val (historyDuration, onHistoryDurationChange) = rememberPreference(
         HistoryDuration,
         defaultValue = 30f
+    )
+    val (loudnessEnhancementEnabled, onLoudnessEnhancementEnabledChange) = rememberPreference(
+        LoudnessEnhancementEnabledKey,
+        defaultValue = true
+    )
+    val (loudnessEnhancementGain, onLoudnessEnhancementGainChange) = rememberPreference(
+        LoudnessEnhancementGainKey,
+        defaultValue = 15f
     )
 
     var showAudioQualityDialog by remember {
@@ -415,6 +425,44 @@ fun PlayerSettings(
                     },
                     onClick = { onAudioNormalizationChange(!audioNormalization) }
                 ))
+                add(Material3SettingsItem(
+                    icon = painterResource(R.drawable.volume_up),
+                    title = { Text(stringResource(R.string.loudness_enhancement)) },
+                    description = { Text(stringResource(R.string.loudness_enhancement_desc)) },
+                    trailingContent = {
+                        Switch(
+                            checked = loudnessEnhancementEnabled,
+                            onCheckedChange = onLoudnessEnhancementEnabledChange,
+                            thumbContent = {
+                                Icon(
+                                    painter = painterResource(
+                                        id = if (loudnessEnhancementEnabled) R.drawable.check else R.drawable.close
+                                    ),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(SwitchDefaults.IconSize)
+                                )
+                            }
+                        )
+                    },
+                    onClick = { onLoudnessEnhancementEnabledChange(!loudnessEnhancementEnabled) }
+                ))
+                if (loudnessEnhancementEnabled) {
+                    add(Material3SettingsItem(
+                        icon = painterResource(R.drawable.graphic_eq),
+                        title = { Text(stringResource(R.string.loudness_enhancement_gain)) },
+                        description = {
+                            Column {
+                                Text(stringResource(R.string.loudness_enhancement_gain_desc, loudnessEnhancementGain.toInt()))
+                                Slider(
+                                    value = loudnessEnhancementGain,
+                                    onValueChange = onLoudnessEnhancementGainChange,
+                                    valueRange = 0f..30f,
+                                    steps = 29
+                                )
+                            }
+                        }
+                    ))
+                }
                 add(Material3SettingsItem(
                     icon = painterResource(R.drawable.graphic_eq),
                     title = { Text(stringResource(R.string.audio_offload)) },

@@ -129,6 +129,8 @@ import com.metrolist.music.R
 import com.metrolist.music.constants.CropAlbumArtKey
 import com.metrolist.music.constants.DarkModeKey
 import com.metrolist.music.constants.HidePlayerThumbnailKey
+import com.metrolist.music.constants.LoudnessEnhancementEnabledKey
+import com.metrolist.music.constants.LoudnessEnhancementGainKey
 import com.metrolist.music.constants.KeepScreenOn
 import com.metrolist.music.constants.PlayerBackgroundStyle
 import com.metrolist.music.constants.PlayerBackgroundStyleKey
@@ -193,6 +195,10 @@ fun BottomSheetPlayer(
         defaultValue = true
     )
     val (hidePlayerThumbnail, onHidePlayerThumbnailChange) = rememberPreference(HidePlayerThumbnailKey, false)
+    val (loudnessEnhancementEnabled, onLoudnessEnhancementEnabledChange) = rememberPreference(
+        LoudnessEnhancementEnabledKey,
+        defaultValue = true
+    )
     val cropAlbumArt by rememberPreference(CropAlbumArtKey, false)
     val playerBackground by rememberEnumPreference(
         key = PlayerBackgroundStyleKey,
@@ -1011,6 +1017,22 @@ fun BottomSheetPlayer(
                                 }
                             }
                         }
+
+                        FilledIconButton(
+                            onClick = { onLoudnessEnhancementEnabledChange(!loudnessEnhancementEnabled) },
+                            shape = middleShape,
+                            colors = IconButtonDefaults.filledIconButtonColors(
+                                containerColor = if (loudnessEnhancementEnabled) MaterialTheme.colorScheme.primary else textButtonColor,
+                                contentColor = if (loudnessEnhancementEnabled) MaterialTheme.colorScheme.onPrimary else iconButtonColor,
+                            ),
+                            modifier = Modifier.size(42.dp),
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.graphic_eq),
+                                contentDescription = null,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
                     }
                 } else {
                     AnimatedContent(targetState = showInlineLyrics, label = "ShareButton") { showLyrics ->
@@ -1107,6 +1129,25 @@ fun BottomSheetPlayer(
                                 iconButtonColor = iconButtonColor,
                             )
                         }
+                    }
+
+                    Spacer(modifier = Modifier.size(12.dp))
+
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(24.dp))
+                            .background(if (loudnessEnhancementEnabled) MaterialTheme.colorScheme.primary else textButtonColor)
+                            .clickable { onLoudnessEnhancementEnabledChange(!loudnessEnhancementEnabled) },
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.graphic_eq),
+                            contentDescription = null,
+                            tint = if (loudnessEnhancementEnabled) MaterialTheme.colorScheme.onPrimary else iconButtonColor,
+                            modifier = Modifier
+                                .align(Alignment.Center)
+                                .size(24.dp),
+                        )
                     }
 
 
@@ -1533,6 +1574,19 @@ fun BottomSheetPlayer(
                                         .padding(4.dp)
                                         .align(Alignment.Center),
                                     onClick = playerConnection::toggleLike,
+                                )
+                            }
+
+                            Box(modifier = Modifier.weight(1f)) {
+                                ResizableIconButton(
+                                    icon = R.drawable.graphic_eq,
+                                    color = if (loudnessEnhancementEnabled) MaterialTheme.colorScheme.primary else TextBackgroundColor,
+                                    modifier =
+                                    Modifier
+                                        .size(32.dp)
+                                        .padding(4.dp)
+                                        .align(Alignment.Center),
+                                    onClick = { onLoudnessEnhancementEnabledChange(!loudnessEnhancementEnabled) },
                                 )
                             }
                         }

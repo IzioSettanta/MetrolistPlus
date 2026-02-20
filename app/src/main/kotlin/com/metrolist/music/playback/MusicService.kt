@@ -99,6 +99,8 @@ import com.metrolist.music.constants.DiscordButton1VisibleKey
 import com.metrolist.music.constants.DiscordButton2TextKey
 import com.metrolist.music.constants.DiscordButton2VisibleKey
 import com.metrolist.music.constants.DiscordStatusKey
+import com.metrolist.music.constants.LoudnessEnhancementEnabledKey
+import com.metrolist.music.constants.LoudnessEnhancementGainKey
 import com.metrolist.music.constants.DiscordTokenKey
 import com.metrolist.music.constants.DiscordUseDetailsKey
 import com.metrolist.music.constants.EnableDiscordRPCKey
@@ -682,6 +684,23 @@ class MusicService :
                 if (!enableInstant) {
                     silenceSkipJob?.cancel()
                 }
+            }
+
+        // Loudness Enhancement preferences
+        dataStore.data
+            .map { it[LoudnessEnhancementEnabledKey] ?: true }
+            .distinctUntilChanged()
+            .collectLatest(scope) { enabled ->
+                Timber.tag(TAG).d("LoudnessEnhancementEnabled preference changed: $enabled")
+                updateLoudnessEnhancement()
+            }
+
+        dataStore.data
+            .map { it[LoudnessEnhancementGainKey] ?: 15f }
+            .distinctUntilChanged()
+            .collectLatest(scope) { gain ->
+                Timber.tag(TAG).d("LoudnessEnhancementGain preference changed: $gain")
+                updateLoudnessEnhancement()
             }
 
         combine(
@@ -1691,6 +1710,7 @@ class MusicService :
 
     private fun setupLoudnessEnhancer() {
         val audioSessionId = player.audioSessionId
+        Timber.tag(TAG).d("setupLoudnessEnhancer called with sessionId: $audioSessionId")
 
         if (audioSessionId == C.AUDIO_SESSION_ID_UNSET || audioSessionId <= 0) {
             Timber.tag(TAG).w("setupLoudnessEnhancer: invalid audioSessionId ($audioSessionId), cannot create effect yet")
@@ -1719,25 +1739,48 @@ class MusicService :
                     dataStore.data.map { it[AudioNormalizationKey] ?: true }.first()
                 }
 
-                if (normalizeAudio && currentMediaId != null) {
-                    val format = withContext(Dispatchers.IO) {
-                        database.format(currentMediaId).first()
-                    }
+                // Get manual loudness enhancement settings
+                val manualEnhancementEnabled = withContext(Dispatchers.IO) {
+                    dataStore.data.map { it[LoudnessEnhancementEnabledKey] ?: true }.first()
+                }
+                val manualEnhancementGain = withContext(Dispatchers.IO) {
+                    dataStore.data.map { it[LoudnessEnhancementGainKey] ?: 15f }.first()
+                }
 
-                    Timber.tag(TAG).d("Audio normalization enabled: $normalizeAudio")
-                    Timber.tag(TAG).d("Format loudnessDb: ${format?.loudnessDb}, perceptualLoudnessDb: ${format?.perceptualLoudnessDb}")
+                // Always apply if manual enhancement is enabled, regardless of normalization
+                if (manualEnhancementEnabled) {
+                    var totalGain = manualEnhancementGain
+                    
+                    // Add automatic normalization if enabled and data available
+                    if (normalizeAudio && currentMediaId != null) {
+                        val format = withContext(Dispatchers.IO) {
+                            database.format(currentMediaId).first()
+                        }
 
-                    // Use loudnessDb if available, otherwise fall back to perceptualLoudnessDb
-                    val loudness = format?.loudnessDb ?: format?.perceptualLoudnessDb
+                        Timber.tag(TAG).d("Audio normalization enabled: $normalizeAudio")
+                        Timber.tag(TAG).d("Format loudnessDb: ${format?.loudnessDb}, perceptualLoudnessDb: ${format?.perceptualLoudnessDb}")
 
-                    withContext(Dispatchers.Main) {
+                        // Use loudnessDb if available, otherwise fall back to perceptualLoudnessDb
+                        val loudness = format?.loudnessDb ?: format?.perceptualLoudnessDb
+
                         if (loudness != null) {
                             val loudnessDb = loudness.toFloat()
-                            val targetGain = (-loudnessDb * 100).toInt()
+                            val normalizationGain = -loudnessDb // Convert to positive gain in dB
+                            totalGain += normalizationGain
+                            Timber.tag(TAG).d("Calculated normalization gain: $normalizationGain dB (from loudness: $loudnessDb)")
+                        } else {
+                            Timber.tag(TAG).w("Normalization enabled but no loudness data available")
+                        }
+                    }
+                    
+                    Timber.tag(TAG).d("Manual enhancement gain: $manualEnhancementGain dB")
+                    
+                    withContext(Dispatchers.Main) {
+                        if (totalGain != 0f) {
+                            val targetGain = (totalGain * 100).toInt() // Convert to millibels
                             val clampedGain = targetGain.coerceIn(MIN_GAIN_MB, MAX_GAIN_MB)
 
-                            Timber.tag(TAG).d("Calculated raw normalization gain: $targetGain mB (from loudness: $loudnessDb)")
-
+                            Timber.tag(TAG).d("Total gain applied: $totalGain dB ($clampedGain mB)")
                             try {
                                 loudnessEnhancer?.setTargetGain(clampedGain)
                                 loudnessEnhancer?.enabled = true
@@ -1749,13 +1792,61 @@ class MusicService :
                             }
                         } else {
                             loudnessEnhancer?.enabled = false
-                            Timber.tag(TAG).w("Normalization enabled but no loudness data available - no normalization applied")
+                            Timber.tag(TAG).d("No gain to apply - loudness enhancer disabled")
+                        }
+                    }
+                } else if (normalizeAudio && currentMediaId != null) {
+                    // Only automatic normalization (no manual enhancement)
+                    var totalGain = 0f
+                    
+                    val format = withContext(Dispatchers.IO) {
+                        database.format(currentMediaId).first()
+                    }
+
+                    Timber.tag(TAG).d("Audio normalization enabled: $normalizeAudio")
+                    Timber.tag(TAG).d("Format loudnessDb: ${format?.loudnessDb}, perceptualLoudnessDb: ${format?.perceptualLoudnessDb}")
+
+                    // Use loudnessDb if available, otherwise fall back to perceptualLoudnessDb
+                    val loudness = format?.loudnessDb ?: format?.perceptualLoudnessDb
+
+                    if (loudness != null) {
+                        val loudnessDb = loudness.toFloat()
+                        val normalizationGain = -loudnessDb // Convert to positive gain in dB
+                        totalGain += normalizationGain
+                        Timber.tag(TAG).d("Calculated normalization gain: $normalizationGain dB (from loudness: $loudnessDb)")
+                        
+                        withContext(Dispatchers.Main) {
+                            if (totalGain != 0f) {
+                                val targetGain = (totalGain * 100).toInt() // Convert to millibels
+                                val clampedGain = targetGain.coerceIn(MIN_GAIN_MB, MAX_GAIN_MB)
+
+                                Timber.tag(TAG).d("Total gain applied: $totalGain dB ($clampedGain mB)")
+                                
+                                try {
+                                    loudnessEnhancer?.setTargetGain(clampedGain)
+                                    loudnessEnhancer?.enabled = true
+                                    Timber.tag(TAG).i("LoudnessEnhancer gain applied: $clampedGain mB")
+                                } catch (e: Exception) {
+                                    Timber.tag(TAG).e(e, "Failed to apply loudness enhancement")
+                                    reportException(e)
+                                    releaseLoudnessEnhancer()
+                                }
+                            } else {
+                                loudnessEnhancer?.enabled = false
+                                Timber.tag(TAG).d("No gain to apply - loudness enhancer disabled")
+                            }
+                        }
+                    } else {
+                        Timber.tag(TAG).w("Normalization enabled but no loudness data available")
+                        withContext(Dispatchers.Main) {
+                            loudnessEnhancer?.enabled = false
+                            Timber.tag(TAG).d("No loudness data available - loudness enhancer disabled")
                         }
                     }
                 } else {
                     withContext(Dispatchers.Main) {
                         loudnessEnhancer?.enabled = false
-                        Timber.tag(TAG).d("setupLoudnessEnhancer: normalization disabled or mediaId unavailable")
+                        Timber.tag(TAG).d("Both normalization and manual enhancement disabled")
                     }
                 }
             } catch (e: Exception) {
@@ -1775,6 +1866,12 @@ class MusicService :
         } finally {
             loudnessEnhancer = null
         }
+    }
+
+    private fun updateLoudnessEnhancement() {
+        Timber.tag(TAG).d("updateLoudnessEnhancement called")
+        // Use the same setup logic to ensure consistency
+        setupLoudnessEnhancer()
     }
 
     private fun openAudioEffectSession() {
@@ -1907,6 +2004,10 @@ class MusicService :
                 Timber.tag(TAG).d("Playback successful for $mediaId, reset retry count")
             }
             scheduleCrossfade()
+            
+            // Setup loudness enhancement when player is ready
+            Timber.tag(TAG).d("Player is STATE_READY, setting up loudness enhancement")
+            setupLoudnessEnhancer()
         }
 
         if (playbackState == Player.STATE_IDLE || playbackState == Player.STATE_ENDED) {
@@ -1915,10 +2016,18 @@ class MusicService :
     }
 
     override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+        Timber.tag(TAG).d("PlayWhenReady changed to: $playWhenReady, reason: $reason")
+        
         // Safety net: if local player tries to start while casting, immediately pause it
         if (playWhenReady && castConnectionHandler?.isCasting?.value == true) {
             player.pause()
             return
+        }
+        
+        // Setup loudness enhancement when playback starts
+        if (playWhenReady && player.playbackState == Player.STATE_READY) {
+            Timber.tag(TAG).d("Playback started, setting up loudness enhancement")
+            updateLoudnessEnhancement()
         }
 
         if (reason == Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST) {
@@ -3254,7 +3363,7 @@ class MusicService :
         const val MAX_CONSECUTIVE_ERR = 5
         const val MAX_RETRY_COUNT = 10
         // Constants for audio normalization
-        private const val MAX_GAIN_MB = 300 // Maximum gain in millibels (3 dB)
+        private const val MAX_GAIN_MB = 3000 // Maximum gain in millibels (30 dB)
         private const val MIN_GAIN_MB = -1500 // Minimum gain in millibels (-15 dB)
 
         private const val TAG = "MusicService"
