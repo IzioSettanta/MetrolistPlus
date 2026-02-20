@@ -33,9 +33,18 @@ fun VoiceSearchScreen(navController: NavHostController) {
     var isListening by remember { mutableStateOf(false) }
     var voiceValue by remember { mutableStateOf(0f) }
     var statusText by remember { mutableStateOf("In ascolto...") }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    // Inizializziamo lo SpeechRecognizer
-    val speechRecognizer = remember { SpeechRecognizer.createSpeechRecognizer(context) }
+    // Inizializziamo lo SpeechRecognizer con controlli di sicurezza
+    val speechRecognizer = remember { 
+        try {
+            if (SpeechRecognizer.isRecognitionAvailable(context)) {
+                SpeechRecognizer.createSpeechRecognizer(context)
+            } else null
+        } catch (e: Exception) {
+            null
+        }
+    }
 
     // Gestione Permessi (Necessaria per il riconoscimento "silenzioso")
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -56,6 +65,12 @@ fun VoiceSearchScreen(navController: NavHostController) {
     )
 
     DisposableEffect(Unit) {
+        // Se il recognizer non è disponibile, mostriamo errore e usciamo
+        if (speechRecognizer == null) {
+            navController.popBackStack()
+            return@DisposableEffect onDispose {}
+        }
+
         // Chiediamo il permesso del microfono
         permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
 
@@ -102,14 +117,24 @@ fun VoiceSearchScreen(navController: NavHostController) {
             override fun onEvent(eventType: Int, params: Bundle?) {}
         }
 
-        speechRecognizer.setRecognitionListener(listener)
+        speechRecognizer?.setRecognitionListener(listener)
+        
         // AVVIAMO IL RICONOSCIMENTO (Senza lanciare un'attività esterna)
-        speechRecognizer.startListening(intent)
+        try {
+            speechRecognizer?.startListening(intent)
+        } catch (e: Exception) {
+            errorMessage = "Errore avvio riconoscimento: ${e.message}"
+            navController.popBackStack()
+        }
 
         onDispose {
-            speechRecognizer.stopListening()
-            speechRecognizer.cancel()
-            speechRecognizer.destroy()
+            try {
+                speechRecognizer?.stopListening()
+                speechRecognizer?.cancel()
+                speechRecognizer?.destroy()
+            } catch (e: Exception) {
+                // Ignora errori durante la pulizia
+            }
         }
     }
 
@@ -124,6 +149,17 @@ fun VoiceSearchScreen(navController: NavHostController) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
+            // Mostra messaggio di errore se presente
+            errorMessage?.let { error ->
+                Text(
+                    text = error,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(horizontal = 24.dp)
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
             Text(
                 text = statusText,
                 style = MaterialTheme.typography.headlineSmall,
