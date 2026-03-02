@@ -525,16 +525,28 @@ object YTPlayerUtils {
             return deobfuscatedUrl
         }
 
-        // Fallback: try to get URL from StreamInfo (temporarily disabled due to compatibility issues)
-        Timber.tag(logTag).d("StreamInfo fallback disabled due to compatibility issues")
-        // val streamUrls = YouTube.getNewPipeStreamUrls(videoId)
-        // if (streamUrls.isNotEmpty()) {
-        //     val streamUrl = streamUrls.find { it.first == format.itag }?.second
-        //     if (streamUrl != null) {
-        //         Timber.tag(logTag).d("Stream URL obtained from StreamInfo")
-        //         return streamUrl
-        //     }
-        // }
+        // Fallback: try to get URL from StreamInfo
+        Timber.tag(logTag).d("Trying StreamInfo fallback for URL")
+        val streamUrls = YouTube.getNewPipeStreamUrls(videoId)
+        if (streamUrls.isNotEmpty()) {
+            val streamUrl = streamUrls.find { it.first == format.itag }?.second
+            if (streamUrl != null) {
+                Timber.tag(logTag).d("Stream URL obtained from StreamInfo")
+                return streamUrl
+            }
+
+            // If exact itag not found, try to find any audio stream
+            val audioStream = streamUrls.find { urlPair ->
+                playerResponse.streamingData?.adaptiveFormats?.any {
+                    it.itag == urlPair.first && it.isAudio
+                } == true
+            }?.second
+
+            if (audioStream != null) {
+                Timber.tag(logTag).d("Audio stream URL obtained from StreamInfo (different itag)")
+                return audioStream
+            }
+        }
 
         Timber.tag(logTag).e("Failed to get stream URL")
         return null
