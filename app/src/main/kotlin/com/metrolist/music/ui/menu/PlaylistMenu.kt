@@ -482,7 +482,7 @@ fun PlaylistMenu(
                                                 title = playlist.playlist.name,
                                                 subtitle = null,
                                                 thumbnailUrl = playlist.thumbnails.firstOrNull(),
-                                                type = "PLAYLIST"
+                                                type = "LOCAL_PLAYLIST"
                                             )
                                         )
                                     }

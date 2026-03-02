@@ -67,6 +67,7 @@ val EnableKugouKey = booleanPreferencesKey("enableKugou")
 val EnableLrcLibKey = booleanPreferencesKey("enableLrclib")
 val EnableBetterLyricsKey = booleanPreferencesKey("enableBetterLyrics")
 val EnableSimpMusicKey = booleanPreferencesKey("enableSimpMusic")
+val EnableLyricsPlus = booleanPreferencesKey("enableLyricsPlus")
 val HideExplicitKey = booleanPreferencesKey("hideExplicit")
 val HideVideoSongsKey = booleanPreferencesKey("hideVideoSongs")
 val HideYoutubeShortsKey = booleanPreferencesKey("hideYoutubeShorts")
@@ -110,7 +111,7 @@ val StopMusicOnTaskClearKey = booleanPreferencesKey("stopMusicOnTaskClear")
 val ShufflePlaylistFirstKey = booleanPreferencesKey("shufflePlaylistFirst")
 val PreventDuplicateTracksInQueueKey = booleanPreferencesKey("preventDuplicateTracksInQueue")
 val CrossfadeEnabledKey = booleanPreferencesKey("crossfadeEnabled")
-val CrossfadeDurationKey = floatPreferencesKey("crossfadeDuration")
+val CrossfadeDurationKey = floatPreferencesKey("crossfadeDurationFloat")
 val CrossfadeGaplessKey = booleanPreferencesKey("crossfadeGapless")
 
 // Loudness Enhancement
@@ -148,6 +149,7 @@ val ListenTogetherServerUrlKey = stringPreferencesKey("listenTogetherServerUrl")
 val ListenTogetherUsernameKey = stringPreferencesKey("listenTogetherUsername")
 val EnableListenTogetherKey = booleanPreferencesKey("enableListenTogether")
 val ListenTogetherAutoApprovalKey = booleanPreferencesKey("listenTogetherAutoApproval")
+val ListenTogetherAutoApproveSuggestionsKey = booleanPreferencesKey("listenTogetherAutoApproveSuggestions")
 val ListenTogetherSyncVolumeKey = booleanPreferencesKey("listenTogetherSyncVolume")
 val ListenTogetherBlockedUsersKey = stringPreferencesKey("listenTogetherBlockedUsers")
 val ListenTogetherInTopBarKey = booleanPreferencesKey("listenTogetherInTopBar")
@@ -192,6 +194,7 @@ val MixSortDescendingKey = booleanPreferencesKey("albumSortDescending")
 val SongFilterKey = stringPreferencesKey("songFilter")
 val ArtistFilterKey = stringPreferencesKey("artistFilter")
 val AlbumFilterKey = stringPreferencesKey("albumFilter")
+val PodcastFilterKey = stringPreferencesKey("podcastFilter")
 
 val LastLikeSongSyncKey = longPreferencesKey("last_like_song_sync")
 val LastLibSongSyncKey = longPreferencesKey("last_library_song_sync")
@@ -210,9 +213,11 @@ val PlaylistViewTypeKey = stringPreferencesKey("playlistViewType")
 val PlaylistEditLockKey = booleanPreferencesKey("playlistEditLock")
 val QuickPicksKey = stringPreferencesKey("discover")
 val PreferredLyricsProviderKey = stringPreferencesKey("lyricsProvider")
+val LyricsProviderOrderKey = stringPreferencesKey("lyricsProviderOrder")
 val QueueEditLockKey = booleanPreferencesKey("queueEditLock")
 val ShowWrappedCardKey = booleanPreferencesKey("show_wrapped_card")
 val WrappedSeenKey = booleanPreferencesKey("wrapped_seen")
+val LastSeenVersionKey = stringPreferencesKey("lastSeenVersion")
 val RandomizeHomeOrderKey = booleanPreferencesKey("randomizeHomeOrder")
 
 val ShowLikedPlaylistKey = booleanPreferencesKey("show_liked_playlist")
@@ -237,7 +242,7 @@ enum class SongFilter {
     LIBRARY,
     LIKED,
     DOWNLOADED,
-    UPLOADED
+    UPLOADED,
 }
 
 enum class ArtistFilter {
@@ -249,6 +254,12 @@ enum class AlbumFilter {
     LIBRARY,
     LIKED,
     UPLOADED
+}
+
+enum class PodcastFilter {
+    EPISODES,
+    CHANNELS,
+    DOWNLOADED,
 }
 
 enum class SongSortType {
@@ -428,6 +439,7 @@ val LyricsTextSizeKey = floatPreferencesKey("lyricsTextSize")
 val LyricsLineSpacingKey = floatPreferencesKey("lyricsLineSpacing")
 
 val PlayerVolumeKey = floatPreferencesKey("playerVolume")
+val SleepTimerDefaultKey = floatPreferencesKey("sleepTimerDefault")
 val RepeatModeKey = intPreferencesKey("repeatMode")
 
 val SearchSourceKey = stringPreferencesKey("searchSource")

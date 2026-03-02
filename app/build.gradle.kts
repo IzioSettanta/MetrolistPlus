@@ -17,14 +17,13 @@ plugins {
 android {
     namespace = "com.metrolist.music"
     compileSdk = 36
-    ndkVersion = "27.0.12077973"
 
     defaultConfig {
         applicationId = "com.metrolist.music"
         minSdk = 26
         targetSdk = 36
-        versionCode = 141
-        versionName = "13.1.1"
+        versionCode = 142
+        versionName = "13.2.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
@@ -35,21 +34,10 @@ android {
 
         buildConfigField("String", "LASTFM_API_KEY", "\"$lastFmKey\"")
         buildConfigField("String", "LASTFM_SECRET", "\"$lastFmSecret\"")
-        
-        // NDK configuration for vibra_fp library
-        ndk {
-            abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86")
-        }
+        buildConfigField("String", "ARCHITECTURE", "\"universal\"")
     }
-    
-    // externalNativeBuild {
-    //     cmake {
-    //         path("src/main/cpp/vibrafp/lib/CMakeLists.txt")
-    //         version = "3.22.1"
-    //     }
-    // }
 
-    flavorDimensions += listOf("abi", "variant")
+    flavorDimensions += listOf("variant")
     productFlavors {
         // FOSS variant (default) - F-Droid compatible, no Google Play Services
         create("foss") {
@@ -57,39 +45,16 @@ android {
             isDefault = true
             buildConfigField("Boolean", "CAST_AVAILABLE", "false")
         }
-        
+
         // GMS variant - with Google Cast support (requires Google Play Services)
         create("gms") {
             dimension = "variant"
             buildConfigField("Boolean", "CAST_AVAILABLE", "true")
         }
-        
-        create("universal") {
-            dimension = "abi"
-            ndk {
-                abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86")
-            }
-            buildConfigField("String", "ARCHITECTURE", "\"universal\"")
-        }
-        create("arm64") {
-            dimension = "abi"
-            ndk { abiFilters += "arm64-v8a" }
-            buildConfigField("String", "ARCHITECTURE", "\"arm64\"")
-        }
-        create("armeabi") {
-            dimension = "abi"
-            ndk { abiFilters += "armeabi-v7a" }
-            buildConfigField("String", "ARCHITECTURE", "\"armeabi\"")
-        }
-        create("x86") {
-            dimension = "abi"
-            ndk { abiFilters += "x86" }
-            buildConfigField("String", "ARCHITECTURE", "\"x86\"")
-        }
     }
 
     signingConfigs {
-        /* create("persistentDebug") {
+        create("persistentDebug") {
             storeFile = file("persistent-debug.keystore")
             storePassword = "android"
             keyAlias = "androiddebugkey"
@@ -106,7 +71,7 @@ android {
             keyPassword = "android"
             storePassword = "android"
             storeFile = file("${System.getProperty("user.home")}/.android/debug.keystore")
-        }*/
+        }
     }
 
     buildTypes {
@@ -119,51 +84,29 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            externalNativeBuild {
-                cmake {
-                    arguments += listOf(
-                        "-DENABLE_LTO=ON",
-                        "-DCMAKE_BUILD_TYPE=Release"
-                    )
-                }
-            }
-            ndk {
-                debugSymbolLevel = "NONE"
-            }
         }
         debug {
-           /* applicationIdSuffix = ".debug"
+            applicationIdSuffix = ".debug"
             isDebuggable = true
             signingConfig = if (System.getenv("GITHUB_EVENT_NAME") == "pull_request") {
                 signingConfigs.getByName("debug")
             } else {
                 signingConfigs.getByName("persistentDebug")
-            } */
-            externalNativeBuild {
-                cmake {
-                    arguments += listOf(
-                        "-DENABLE_LTO=OFF",
-                        "-DCMAKE_BUILD_TYPE=Debug"
-                    )
-                }
-            }
-            ndk {
-                debugSymbolLevel = "FULL"
             }
         }
     }
 
     compileOptions {
         isCoreLibraryDesugaringEnabled = true
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
     }
 
     kotlin {
-        jvmToolchain(17)
+        jvmToolchain(21)
         compilerOptions {
             freeCompilerArgs.add("-Xannotation-default-target=param-property")
-            jvmTarget.set(JvmTarget.JVM_17)
+            jvmTarget.set(JvmTarget.JVM_21)
         }
     }
 
@@ -257,8 +200,6 @@ dependencies {
     implementation(libs.media3.session)
     implementation(libs.media3.okhttp)
 
-    implementation("androidx.webkit:webkit:1.8.0")
-
     // Google Cast - only included in GMS flavor (not available in F-Droid/FOSS builds)
     "gmsImplementation"(libs.media3.cast)
     "gmsImplementation"(libs.mediarouter)
@@ -286,6 +227,8 @@ dependencies {
     implementation(project(":shazamkit"))
 
     implementation(libs.ktor.client.core)
+    implementation(libs.ktor.client.cio)
+    implementation(libs.ktor.client.content.negotiation)
     implementation(libs.ktor.serialization.json)
 
     // Protobuf for message serialization (lite version for Android)

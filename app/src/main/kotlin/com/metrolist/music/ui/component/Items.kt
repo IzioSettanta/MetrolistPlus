@@ -88,7 +88,9 @@ import coil3.request.ImageRequest
 import com.metrolist.innertube.YouTube
 import com.metrolist.innertube.models.AlbumItem
 import com.metrolist.innertube.models.ArtistItem
+import com.metrolist.innertube.models.EpisodeItem
 import com.metrolist.innertube.models.PlaylistItem
+import com.metrolist.innertube.models.PodcastItem
 import com.metrolist.innertube.models.SongItem
 import com.metrolist.innertube.models.YTItem
 import com.metrolist.music.LocalDatabase
@@ -374,6 +376,7 @@ fun SongListItem(
     showLikedIcon: Boolean = true,
     showInLibraryIcon: Boolean = false,
     showDownloadIcon: Boolean = true,
+    subtitleOverride: String? = null,
     badges: @Composable RowScope.() -> Unit = {
         if (showLikedIcon && song.song.liked) {
             Icon.Favorite()
@@ -401,7 +404,7 @@ fun SongListItem(
     val content: @Composable () -> Unit = {
         ListItem(
             title = song.song.title,
-            subtitle = joinByBullet(
+            subtitle = subtitleOverride ?: joinByBullet(
                 song.artists.joinToString { it.name },
                 makeTimeString(song.song.duration * 1000L)
             ),
@@ -520,7 +523,7 @@ fun ArtistListItem(
     trailingContent: @Composable RowScope.() -> Unit = {},
 ) = ListItem(
     title = artist.artist.name,
-    subtitle = pluralStringResource(R.plurals.n_song, artist.songCount, artist.songCount),
+    subtitle = if (artist.songCount > 0) pluralStringResource(R.plurals.n_song, artist.songCount, artist.songCount) else null,
     badges = badges,
     thumbnailContent = {
         AsyncImage(
@@ -552,7 +555,7 @@ fun ArtistGridItem(
     fillMaxWidth: Boolean = false,
 ) = GridItem(
     title = artist.artist.name,
-    subtitle = pluralStringResource(R.plurals.n_song, artist.songCount, artist.songCount),
+    subtitle = if (artist.songCount > 0) pluralStringResource(R.plurals.n_song, artist.songCount, artist.songCount) else "",
     badges = badges,
     thumbnailContent = {
         AsyncImage(
@@ -1007,6 +1010,8 @@ fun YouTubeListItem(
                 is AlbumItem -> joinByBullet(item.artists?.joinToString { it.name }, item.year?.toString())
                 is ArtistItem -> null
                 is PlaylistItem -> joinByBullet(item.author?.name, item.songCountText)
+                is PodcastItem -> joinByBullet(item.author?.name, item.episodeCountText)
+                is EpisodeItem -> joinByBullet(item.author?.name, item.publishDateText, makeTimeString(item.duration?.times(1000L)))
             },
             badges = badges,
             thumbnailContent = {
@@ -1086,6 +1091,8 @@ fun YouTubeGridItem(
             is AlbumItem -> joinByBullet(item.artists?.joinToString { it.name }, item.year?.toString())
             is ArtistItem -> null
             is PlaylistItem -> joinByBullet(item.author?.name, item.songCountText)
+            is PodcastItem -> joinByBullet(item.author?.name, item.episodeCountText)
+            is EpisodeItem -> joinByBullet(item.author?.name, makeTimeString(item.duration?.times(1000L)))
         }
         if (subtitle != null) {
             Text(

@@ -65,12 +65,17 @@ import androidx.navigation.NavController
 import com.metrolist.innertube.YouTube.SearchFilter.Companion.FILTER_ALBUM
 import com.metrolist.innertube.YouTube.SearchFilter.Companion.FILTER_ARTIST
 import com.metrolist.innertube.YouTube.SearchFilter.Companion.FILTER_COMMUNITY_PLAYLIST
+import com.metrolist.innertube.YouTube.SearchFilter.Companion.FILTER_EPISODE
 import com.metrolist.innertube.YouTube.SearchFilter.Companion.FILTER_FEATURED_PLAYLIST
+import com.metrolist.innertube.YouTube.SearchFilter.Companion.FILTER_PODCAST
+import com.metrolist.innertube.YouTube.SearchFilter.Companion.FILTER_PROFILE
 import com.metrolist.innertube.YouTube.SearchFilter.Companion.FILTER_SONG
 import com.metrolist.innertube.YouTube.SearchFilter.Companion.FILTER_VIDEO
 import com.metrolist.innertube.models.AlbumItem
 import com.metrolist.innertube.models.ArtistItem
+import com.metrolist.innertube.models.EpisodeItem
 import com.metrolist.innertube.models.PlaylistItem
+import com.metrolist.innertube.models.PodcastItem
 import com.metrolist.innertube.models.SongItem
 import com.metrolist.innertube.models.WatchEndpoint
 import com.metrolist.innertube.models.YTItem
@@ -85,6 +90,7 @@ import com.metrolist.music.db.entities.SearchHistory
 import com.metrolist.music.models.toMediaMetadata
 import com.metrolist.music.playback.queues.YouTubeQueue
 import com.metrolist.music.ui.component.ChipsRow
+import com.metrolist.music.ui.component.HideOnScrollFAB
 import com.metrolist.music.ui.component.EmptyPlaceholder
 import com.metrolist.music.ui.component.LocalMenuState
 import com.metrolist.music.ui.component.NavigationTitle
@@ -182,9 +188,6 @@ fun OnlineSearchResult(
         }
     }
     
-    // Suggestion states
-
-
     LaunchedEffect(lazyListState) {
         snapshotFlow {
             lazyListState.layoutInfo.visibleItemsInfo.any { it.key == "loading" }
@@ -225,6 +228,20 @@ fun OnlineSearchResult(
                             coroutineScope = coroutineScope,
                             onDismiss = menuState::dismiss,
                         )
+
+                    is PodcastItem ->
+                        YouTubePlaylistMenu(
+                            playlist = item.asPlaylistItem(),
+                            coroutineScope = coroutineScope,
+                            onDismiss = menuState::dismiss,
+                        )
+
+                    is EpisodeItem ->
+                        YouTubeSongMenu(
+                            song = item.asSongItem(),
+                            navController = navController,
+                            onDismiss = menuState::dismiss,
+                        )
                 }
             }
         }
@@ -234,6 +251,7 @@ fun OnlineSearchResult(
             when (item) {
                 is SongItem -> mediaMetadata?.id == item.id
                 is AlbumItem -> mediaMetadata?.album?.id == item.id
+                is EpisodeItem -> mediaMetadata?.id == item.id
                 else -> false
             },
             isPlaying = isPlaying,
@@ -268,6 +286,19 @@ fun OnlineSearchResult(
                             is AlbumItem -> navController.navigate("album/${item.id}")
                             is ArtistItem -> navController.navigate("artist/${item.id}")
                             is PlaylistItem -> navController.navigate("online_playlist/${item.id}")
+                            is PodcastItem -> navController.navigate("online_podcast/${item.id}")
+                            is EpisodeItem -> {
+                                if (item.id == mediaMetadata?.id) {
+                                    playerConnection.togglePlayPause()
+                                } else {
+                                    playerConnection.playQueue(
+                                        YouTubeQueue(
+                                            WatchEndpoint(videoId = item.id),
+                                            item.toMediaMetadata()
+                                        )
+                                    )
+                                }
+                            }
                         }
                     },
                     onLongClick = longClick,
@@ -368,6 +399,9 @@ fun OnlineSearchResult(
                     FILTER_ARTIST to stringResource(R.string.filter_artists),
                     FILTER_COMMUNITY_PLAYLIST to stringResource(R.string.filter_community_playlists),
                     FILTER_FEATURED_PLAYLIST to stringResource(R.string.filter_featured_playlists),
+                    FILTER_PODCAST to stringResource(R.string.filter_podcasts),
+                    FILTER_EPISODE to stringResource(R.string.filter_episodes),
+                    FILTER_PROFILE to stringResource(R.string.filter_profiles),
                 ),
                 currentValue = searchFilter,
                 onValueUpdate = {
@@ -461,6 +495,11 @@ fun OnlineSearchResult(
                     pureBlack = pureBlack
                 )
             }
+            HideOnScrollFAB(
+                lazyListState = lazyListState,
+                icon = R.drawable.mic,
+                onClick = { navController.navigate("recognition") }
+            )
         }
     }
 }

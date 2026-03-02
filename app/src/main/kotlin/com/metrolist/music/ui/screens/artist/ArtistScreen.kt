@@ -82,7 +82,9 @@ import coil3.compose.AsyncImage
 import com.metrolist.innertube.YouTube
 import com.metrolist.innertube.models.AlbumItem
 import com.metrolist.innertube.models.ArtistItem
+import com.metrolist.innertube.models.EpisodeItem
 import com.metrolist.innertube.models.PlaylistItem
+import com.metrolist.innertube.models.PodcastItem
 import com.metrolist.innertube.models.SongItem
 import com.metrolist.innertube.models.WatchEndpoint
 import com.metrolist.music.LocalDatabase
@@ -149,6 +151,7 @@ fun ArtistScreen(
     val libraryArtist by viewModel.libraryArtist.collectAsState()
     val librarySongs by viewModel.librarySongs.collectAsState()
     val libraryAlbums by viewModel.libraryAlbums.collectAsState()
+    val isChannelSubscribed by viewModel.isChannelSubscribed.collectAsState()
     val hideExplicit by rememberPreference(key = HideExplicitKey, defaultValue = false)
     val showArtistDescription by rememberPreference(key = ShowArtistDescriptionKey, defaultValue = true)
     val showArtistSubscriberCount by rememberPreference(key = ShowArtistSubscriberCountKey, defaultValue = true)
@@ -338,26 +341,10 @@ fun ArtistScreen(
                                     // Subscribe Button
                                     OutlinedButton(
                                         onClick = {
-                                            database.transaction {
-                                                val artist = libraryArtist?.artist
-                                                if (artist != null) {
-                                                    update(artist.toggleLike())
-                                                } else {
-                                                    artistPage?.artist?.let {
-                                                        insert(
-                                                            ArtistEntity(
-                                                                id = it.id,
-                                                                name = it.title,
-                                                                channelId = it.channelId,
-                                                                thumbnailUrl = it.thumbnail,
-                                                            ).toggleLike()
-                                                        )
-                                                    }
-                                                }
-                                            }
+                                            viewModel.toggleChannelSubscription(context)
                                         },
                                         colors = ButtonDefaults.outlinedButtonColors(
-                                            containerColor = if (libraryArtist?.artist?.bookmarkedAt != null)
+                                            containerColor = if (isChannelSubscribed)
                                                 MaterialTheme.colorScheme.surface
                                             else
                                                 Color.Transparent
@@ -365,11 +352,10 @@ fun ArtistScreen(
                                         shape = RoundedCornerShape(50),
                                         modifier = Modifier.height(40.dp)
                                     ) {
-                                        val isSubscribed = libraryArtist?.artist?.bookmarkedAt != null
                                         Text(
-                                            text = stringResource(if (isSubscribed) R.string.subscribed else R.string.subscribe),
+                                            text = stringResource(if (isChannelSubscribed) R.string.subscribed else R.string.subscribe),
                                             fontSize = 14.sp,
-                                            color = if (!isSubscribed) MaterialTheme.colorScheme.error else LocalContentColor.current
+                                            color = if (!isChannelSubscribed) MaterialTheme.colorScheme.error else LocalContentColor.current
                                         )
                                     }
 
@@ -757,6 +743,14 @@ fun ArtistScreen(
                                                             is AlbumItem -> navController.navigate("album/${item.id}")
                                                             is ArtistItem -> navController.navigate("artist/${item.id}")
                                                             is PlaylistItem -> navController.navigate("online_playlist/${item.id}")
+                                                            is PodcastItem -> navController.navigate("online_podcast/${item.id}")
+                                                            is EpisodeItem ->
+                                                                playerConnection.playQueue(
+                                                                    YouTubeQueue(
+                                                                        WatchEndpoint(videoId = item.id),
+                                                                        item.toMediaMetadata()
+                                                                    ),
+                                                                )
                                                         }
                                                     },
                                                     onLongClick = {
@@ -787,6 +781,20 @@ fun ArtistScreen(
                                                                     YouTubePlaylistMenu(
                                                                         playlist = item,
                                                                         coroutineScope = coroutineScope,
+                                                                        onDismiss = menuState::dismiss,
+                                                                    )
+
+                                                                is PodcastItem ->
+                                                                    YouTubePlaylistMenu(
+                                                                        playlist = item.asPlaylistItem(),
+                                                                        coroutineScope = coroutineScope,
+                                                                        onDismiss = menuState::dismiss,
+                                                                    )
+
+                                                                is EpisodeItem ->
+                                                                    YouTubeSongMenu(
+                                                                        song = item.asSongItem(),
+                                                                        navController = navController,
                                                                         onDismiss = menuState::dismiss,
                                                                     )
                                                             }

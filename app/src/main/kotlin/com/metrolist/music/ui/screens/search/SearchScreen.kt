@@ -7,6 +7,7 @@ package com.metrolist.music.ui.screens.search
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -24,7 +25,6 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -56,7 +56,7 @@ import com.metrolist.music.constants.PauseSearchHistoryKey
 import com.metrolist.music.constants.SearchSource
 import com.metrolist.music.constants.SearchSourceKey
 import com.metrolist.music.db.entities.SearchHistory
-import com.metrolist.music.ui.screens.Screens
+import com.metrolist.music.ui.component.HideOnScrollFAB
 import com.metrolist.music.utils.rememberEnumPreference
 import com.metrolist.music.utils.rememberPreference
 import kotlinx.coroutines.Dispatchers
@@ -76,12 +76,12 @@ fun SearchScreen(
     val keyboardController = LocalSoftwareKeyboardController.current
     val isPlayerExpanded = LocalIsPlayerExpanded.current
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
-    
+    val lazyListState = rememberLazyListState()
+
     var searchSource by rememberEnumPreference(SearchSourceKey, SearchSource.ONLINE)
     var query by rememberSaveable(stateSaver = TextFieldValue.Saver) {
         mutableStateOf(TextFieldValue())
     }
-    
     val pauseSearchHistory by rememberPreference(PauseSearchHistoryKey, defaultValue = false)
     var isFirstLaunch by rememberSaveable { mutableStateOf(true) }
 
@@ -99,20 +99,6 @@ fun SearchScreen(
                     }
                 }
             }
-        }
-    }
-    
-    // Handle query from voice search navigation
-    val voiceQuery = navController.currentBackStackEntry
-        ?.savedStateHandle
-        ?.get<String>("query")
-    
-    LaunchedEffect(voiceQuery) {
-        voiceQuery?.let { text ->
-            query = TextFieldValue(text)
-            navController.currentBackStackEntry?.savedStateHandle?.remove<String>("query")
-            // Trigger search automatically
-            onSearch(text)
         }
     }
 
@@ -179,15 +165,6 @@ fun SearchScreen(
                         )
                         
                         Row {
-                            IconButton(
-                                onClick = { navController.navigate(Screens.VoiceSearch.route) }
-                            ) {
-                                Icon(
-                                    painter = painterResource(R.drawable.mic),
-                                    contentDescription = stringResource(R.string.voice_search),
-                                    tint = MaterialTheme.colorScheme.onSurface
-                                )
-                            }
                             if (query.text.isNotEmpty()) {
                                 IconButton(onClick = { query = TextFieldValue("") }) {
                                     Icon(
@@ -238,25 +215,36 @@ fun SearchScreen(
         Box(
             modifier = Modifier
                 .padding(paddingValues)
-                .padding(bottom = bottomPadding)
                 .fillMaxSize()
         ) {
-            when (searchSource) {
-                SearchSource.LOCAL -> LocalSearchScreen(
-                    query = query.text,
-                    navController = navController,
-                    onDismiss = { navController.navigateUp() },
-                    pureBlack = pureBlack
-                )
-                SearchSource.ONLINE -> OnlineSearchScreen(
-                    query = query.text,
-                    onQueryChange = { query = it },
-                    navController = navController,
-                    onSearch = onSearchFromSuggestion,
-                    onDismiss = { /* Don't dismiss when searching from suggestions */ },
-                    pureBlack = pureBlack
-                )
+            Box(
+                modifier = Modifier
+                    .padding(bottom = bottomPadding)
+                    .fillMaxSize()
+            ) {
+                when (searchSource) {
+                    SearchSource.LOCAL -> LocalSearchScreen(
+                        query = query.text,
+                        navController = navController,
+                        onDismiss = { navController.navigateUp() },
+                        pureBlack = pureBlack
+                    )
+                    SearchSource.ONLINE -> OnlineSearchScreen(
+                        query = query.text,
+                        onQueryChange = { query = it },
+                        navController = navController,
+                        onSearch = onSearchFromSuggestion,
+                        onDismiss = { /* Don't dismiss when searching from suggestions */ },
+                        pureBlack = pureBlack
+                    )
+                }
             }
+            
+            HideOnScrollFAB(
+                lazyListState = lazyListState,
+                icon = R.drawable.mic,
+                onClick = { navController.navigate("recognition") }
+            )
         }
     }
 

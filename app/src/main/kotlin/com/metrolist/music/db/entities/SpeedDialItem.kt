@@ -5,7 +5,9 @@ import androidx.room.PrimaryKey
 import com.metrolist.innertube.models.AlbumItem
 import com.metrolist.innertube.models.Artist
 import com.metrolist.innertube.models.ArtistItem
+import com.metrolist.innertube.models.EpisodeItem
 import com.metrolist.innertube.models.PlaylistItem
+import com.metrolist.innertube.models.PodcastItem
 import com.metrolist.innertube.models.SongItem
 import com.metrolist.innertube.models.YTItem
 
@@ -16,7 +18,7 @@ data class SpeedDialItem(
     val title: String,
     val subtitle: String? = null,
     val thumbnailUrl: String? = null,
-    val type: String, // "SONG", "ALBUM", "ARTIST", "PLAYLIST"
+    val type: String, // "SONG", "ALBUM", "ARTIST", "PLAYLIST", "LOCAL_PLAYLIST"
     val explicit: Boolean = false,
     val createDate: Long = System.currentTimeMillis()
 ) {
@@ -44,7 +46,7 @@ data class SpeedDialItem(
                 shuffleEndpoint = null,
                 radioEndpoint = null
             )
-            "PLAYLIST" -> PlaylistItem(
+            "PLAYLIST", "LOCAL_PLAYLIST" -> PlaylistItem(
                 id = id,
                 title = title,
                 author = subtitle?.let { Artist(name = it, id = null) },
@@ -90,6 +92,21 @@ data class SpeedDialItem(
                     subtitle = item.author?.name,
                     thumbnailUrl = item.thumbnail,
                     type = "PLAYLIST"
+                )
+                is PodcastItem -> SpeedDialItem(
+                    id = item.id,
+                    title = item.title,
+                    subtitle = item.author?.name,
+                    thumbnailUrl = item.thumbnail,
+                    type = "PLAYLIST"
+                )
+                is EpisodeItem -> SpeedDialItem(
+                    id = item.id,
+                    title = item.title,
+                    subtitle = item.author?.name,
+                    thumbnailUrl = item.thumbnail,
+                    type = "SONG",
+                    explicit = item.explicit
                 )
             }
         }

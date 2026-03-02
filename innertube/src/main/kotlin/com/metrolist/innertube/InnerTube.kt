@@ -403,7 +403,7 @@ class InnerTube {
             setBody(
                 LikeBody(
                     context = client.toContext(locale, visitorData, dataSyncId),
-                    target = LikeBody.Target.VideoTarget(videoId)
+                    target = LikeBody.Target.video(videoId)
                 )
             )
         }
@@ -418,7 +418,7 @@ class InnerTube {
             setBody(
                 LikeBody(
                     context = client.toContext(locale, visitorData, dataSyncId),
-                    target = LikeBody.Target.VideoTarget(videoId)
+                    target = LikeBody.Target.video(videoId)
                 )
             )
         }
@@ -427,13 +427,15 @@ class InnerTube {
     suspend fun subscribeChannel(
         client: YouTubeClient,
         channelId: String,
+        params: String? = null,
     ) = withRetry {
         httpClient.post("subscription/subscribe") {
             ytClient(client, setLogin = true)
             setBody(
                 SubscribeBody(
                     context = client.toContext(locale, visitorData, dataSyncId),
-                    channelIds = listOf(channelId)
+                    channelIds = listOf(channelId),
+                    params = params
                 )
             )
         }
@@ -442,13 +444,15 @@ class InnerTube {
     suspend fun unsubscribeChannel(
         client: YouTubeClient,
         channelId: String,
+        params: String? = null,
     ) = withRetry {
         httpClient.post("subscription/unsubscribe") {
             ytClient(client, setLogin = true)
             setBody(
                 SubscribeBody(
                     context = client.toContext(locale, visitorData, dataSyncId),
-                    channelIds = listOf(channelId)
+                    channelIds = listOf(channelId),
+                    params = params
                 )
             )
         }
@@ -463,7 +467,7 @@ class InnerTube {
             setBody(
                 LikeBody(
                     context = client.toContext(locale, visitorData, dataSyncId),
-                    target = LikeBody.Target.PlaylistTarget(playlistId)
+                    target = LikeBody.Target.playlist(playlistId)
                 )
             )
         }
@@ -478,7 +482,7 @@ class InnerTube {
             setBody(
                 LikeBody(
                     context = client.toContext(locale, visitorData, dataSyncId),
-                    target = LikeBody.Target.PlaylistTarget(playlistId)
+                    target = LikeBody.Target.playlist(playlistId)
                 )
             )
         }
