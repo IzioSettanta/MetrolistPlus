@@ -239,9 +239,6 @@ class MusicService :
     @Inject
     lateinit var widgetManager: MetrolistWidgetManager
 
-    @Inject
-    lateinit var listenTogetherManager: com.metrolist.music.listentogether.ListenTogetherManager
-
     private lateinit var audioManager: AudioManager
     private var audioFocusRequest: AudioFocusRequest? = null
     private var lastAudioFocusState = AudioManager.AUDIOFOCUS_NONE
@@ -816,19 +813,13 @@ class MusicService :
                 }
             }
 
-        combine(
-            dataStore.data.map { prefs ->
+        dataStore.data.map { prefs ->
                 Triple(
                     prefs[CrossfadeEnabledKey] ?: false,
                     prefs[CrossfadeDurationKey] ?: 5f,
                     prefs[CrossfadeGaplessKey] ?: true
                 )
-            },
-            listenTogetherManager.roomState
-        ) { (enabled, duration, gapless), roomState ->
-            // Disable crossfade if user is in a listen together room
-            Triple(enabled && roomState == null, duration, gapless)
-        }
+            }
             .distinctUntilChanged()
             .collect(scope) { (enabled, duration, gapless) ->
                 crossfadeEnabled = enabled
