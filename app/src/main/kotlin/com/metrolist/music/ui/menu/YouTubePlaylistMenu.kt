@@ -126,7 +126,7 @@ fun YouTubePlaylistMenu(
                 }.map {
                     it.toMediaMetadata()
                 }
-            database.transaction {
+            database.withTransaction {
                 allSongs.forEach(::insert)
             }
             coroutineScope.launch(Dispatchers.IO) {
@@ -288,7 +288,7 @@ fun YouTubePlaylistMenu(
                 }.map {
                     it.toMediaMetadata()
                 }
-            database.transaction {
+            database.withTransaction {
                 allSongs.forEach(::insert)
             }
             allSongs.map { it.id }

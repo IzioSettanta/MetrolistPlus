@@ -7,7 +7,6 @@ package com.metrolist.music.ui.menu
 
 import android.content.Intent
 import android.content.res.Configuration
-import android.widget.Toast
 import java.time.LocalDateTime
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -34,6 +33,7 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -65,6 +65,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.media3.exoplayer.offline.Download
 import androidx.media3.exoplayer.offline.DownloadRequest
 import androidx.media3.exoplayer.offline.DownloadService
+import android.widget.Toast
 import androidx.navigation.NavController
 import coil3.compose.AsyncImage
 import com.metrolist.innertube.YouTube
@@ -81,11 +82,11 @@ import com.metrolist.music.db.entities.PodcastEntity
 import com.metrolist.music.db.entities.SpeedDialItem
 import com.metrolist.music.db.entities.PlaylistSong
 import com.metrolist.music.db.entities.Song
-import timber.log.Timber
 import com.metrolist.music.extensions.toMediaItem
 import com.metrolist.music.models.toMediaMetadata
 import com.metrolist.music.playback.ExoDownloadService
 import com.metrolist.music.playback.queues.YouTubeQueue
+import com.metrolist.music.ui.component.DefaultDialog
 import com.metrolist.music.ui.component.ListDialog
 import com.metrolist.music.ui.component.LocalBottomSheetPageState
 import com.metrolist.music.ui.component.Material3MenuGroup
@@ -99,6 +100,7 @@ import com.metrolist.music.viewmodels.CachePlaylistViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import timber.log.Timber
 
 @Composable
 fun SongMenu(
@@ -263,6 +265,93 @@ fun SongMenu(
         mutableStateOf(false)
     }
 
+    var showDeleteUploadedDialog by rememberSaveable {
+        mutableStateOf(false)
+    }
+    var isDeleting by remember { mutableStateOf(false) }
+
+    if (showDeleteUploadedDialog) {
+        DefaultDialog(
+            onDismiss = { if (!isDeleting) showDeleteUploadedDialog = false },
+            icon = {
+                Icon(
+                    painter = painterResource(R.drawable.delete),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                )
+            },
+            title = { Text(stringResource(R.string.delete_uploaded_song)) },
+            buttons = {
+                TextButton(
+                    onClick = { showDeleteUploadedDialog = false },
+                    enabled = !isDeleting
+                ) {
+                    Text(stringResource(R.string.cancel))
+                }
+                TextButton(
+                    onClick = {
+                        val entityId = song.song.uploadEntityId
+                        if (entityId == null) {
+                            Toast.makeText(
+                                context,
+                                R.string.delete_uploaded_song_failed,
+                                Toast.LENGTH_SHORT
+                            ).show()
+                            showDeleteUploadedDialog = false
+                            return@TextButton
+                        }
+                        isDeleting = true
+                        coroutineScope.launch(Dispatchers.IO) {
+                            YouTube.deleteUploadedSong(entityId).onSuccess {
+                                database.query {
+                                    delete(song.song)
+                                }
+                                withContext(Dispatchers.Main) {
+                                    Toast.makeText(
+                                        context,
+                                        R.string.delete_uploaded_song_success,
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                    isDeleting = false
+                                    showDeleteUploadedDialog = false
+                                    onDismiss()
+                                }
+                            }.onFailure {
+                                withContext(Dispatchers.Main) {
+                                    Toast.makeText(
+                                        context,
+                                        R.string.delete_uploaded_song_failed,
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                    isDeleting = false
+                                    showDeleteUploadedDialog = false
+                                }
+                            }
+                        }
+                    },
+                    enabled = !isDeleting
+                ) {
+                    if (isDeleting) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text(
+                            text = stringResource(R.string.delete),
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+            }
+        ) {
+            Text(
+                text = stringResource(R.string.delete_uploaded_song_confirm),
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+    }
+
     if (showSelectArtistDialog) {
         ListDialog(
             onDismiss = { showSelectArtistDialog = false },
@@ -322,7 +411,10 @@ fun SongMenu(
                         // Episode: toggle save for later (same pattern as songs)
                         val isCurrentlySaved = song.song.inLibrary != null
                         database.query {
-                            update(song.song.copy(inLibrary = if (isCurrentlySaved) null else LocalDateTime.now()))
+                            update(song.song.copy(
+                                inLibrary = if (isCurrentlySaved) null else LocalDateTime.now(),
+                                isEpisode = true
+                            ))
                         }
                         coroutineScope.launch(Dispatchers.IO) {
                             if (isCurrentlySaved) {
@@ -555,41 +647,19 @@ fun SongMenu(
                                 },
                                 onClick = {
                                     coroutineScope.launch(Dispatchers.IO) {
-                                        if (isEpisodeSaved) {
-                                            // Remove from Episodes for Later
-                                            // Optimistic UI update - remove immediately
-                                            database.query {
-                                                update(song.song.copy(inLibrary = null))
-                                            }
-                                            val setVideoIdEntity = database.getSetVideoId(song.id)
-                                            val setVideoId = setVideoIdEntity?.setVideoId
-                                            if (setVideoId != null) {
-                                                YouTube.removeEpisodeFromSavedEpisodes(song.id, setVideoId).onSuccess {
-                                                    Timber.d("[EPISODE_SAVE] Removed episode from Episodes for Later: ${song.id}")
-                                                }.onFailure { e ->
-                                                    Timber.e(e, "[EPISODE_SAVE] Failed to remove episode: ${song.id}")
-                                                    withContext(Dispatchers.Main) {
-                                                        Toast.makeText(context, R.string.error_episode_remove, Toast.LENGTH_SHORT).show()
-                                                    }
-                                                }
-                                            } else {
-                                                Timber.w("[EPISODE_SAVE] No setVideoId found for ${song.id}")
-                                            }
-                                        } else {
-                                            // Add to Episodes for Later
-                                            // Optimistic UI update - add immediately
-                                            database.query {
-                                                update(song.song.copy(inLibrary = LocalDateTime.now()))
-                                            }
-                                            YouTube.addEpisodeToSavedEpisodes(song.id).onSuccess {
-                                                Timber.d("[EPISODE_SAVE] Saved episode to Episodes for Later: ${song.id}")
-                                            }.onFailure { e ->
-                                                Timber.e(e, "[EPISODE_SAVE] Failed to save episode: ${song.id}")
-                                                withContext(Dispatchers.Main) {
-                                                    Toast.makeText(context, R.string.error_episode_save, Toast.LENGTH_SHORT).show()
-                                                }
-                                            }
+                                        val shouldBeSaved = !isEpisodeSaved
+
+                                        // Update local database first (optimistic update)
+                                        database.query {
+                                            update(song.song.copy(
+                                                inLibrary = if (shouldBeSaved) LocalDateTime.now() else null,
+                                                isEpisode = true
+                                            ))
                                         }
+
+                                        // Sync with YouTube (handles login check internally)
+                                        val setVideoId = if (isEpisodeSaved) database.getSetVideoId(song.id)?.setVideoId else null
+                                        syncUtils.saveEpisode(song.id, shouldBeSaved, setVideoId)
                                     }
                                     onDismiss()
                                 }
@@ -702,6 +772,23 @@ fun SongMenu(
                                 onClick = {
                                     onDismiss()
                                     cacheViewModel.removeSongFromCache(song.id)
+                                }
+                            )
+                        )
+                    }
+                    // Delete uploaded song option
+                    if (song.song.isUploaded) {
+                        add(
+                            Material3MenuItemData(
+                                title = { Text(text = stringResource(R.string.delete_uploaded_song)) },
+                                icon = {
+                                    Icon(
+                                        painter = painterResource(R.drawable.delete),
+                                        contentDescription = null,
+                                    )
+                                },
+                                onClick = {
+                                    showDeleteUploadedDialog = true
                                 }
                             )
                         )

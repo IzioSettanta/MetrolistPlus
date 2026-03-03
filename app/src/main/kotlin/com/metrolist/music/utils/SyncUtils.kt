@@ -70,6 +70,9 @@ sealed class SyncOperation {
     data object AutoSyncPlaylists : SyncOperation()
     data class SinglePlaylist(val browseId: String, val playlistId: String) : SyncOperation()
     data class LikeSong(val song: SongEntity) : SyncOperation()
+    data class SubscribeChannel(val channelId: String, val subscribe: Boolean) : SyncOperation()
+    data class SavePodcast(val podcastId: String, val save: Boolean) : SyncOperation()
+    data class SaveEpisode(val episodeId: String, val save: Boolean, val setVideoId: String?) : SyncOperation()
     data object CleanupDuplicates : SyncOperation()
     data object ClearAllSynced : SyncOperation()
     data object ClearPodcastData : SyncOperation()
@@ -162,6 +165,9 @@ class SyncUtils @Inject constructor(
             is SyncOperation.AutoSyncPlaylists -> executeSyncAutoSyncPlaylists()
             is SyncOperation.SinglePlaylist -> executeSyncPlaylist(operation.browseId, operation.playlistId)
             is SyncOperation.LikeSong -> executeLikeSong(operation.song)
+            is SyncOperation.SubscribeChannel -> executeSubscribeChannel(operation.channelId, operation.subscribe)
+            is SyncOperation.SavePodcast -> executeSavePodcast(operation.podcastId, operation.save)
+            is SyncOperation.SaveEpisode -> executeSaveEpisode(operation.episodeId, operation.save, operation.setVideoId)
             is SyncOperation.CleanupDuplicates -> executeCleanupDuplicatePlaylists()
             is SyncOperation.ClearAllSynced -> executeClearAllSyncedContent()
             is SyncOperation.ClearPodcastData -> executeClearPodcastData()
@@ -255,6 +261,26 @@ class SyncUtils @Inject constructor(
     fun likeSong(s: SongEntity) {
         syncScope.launch {
             syncChannel.send(SyncOperation.LikeSong(s))
+        }
+    }
+
+    fun subscribeChannel(channelId: String, subscribe: Boolean) {
+        syncScope.launch {
+            syncChannel.send(SyncOperation.SubscribeChannel(channelId, subscribe))
+        }
+    }
+
+    fun savePodcast(podcastId: String, save: Boolean) {
+        Timber.d("[PODCAST_TOGGLE] SyncUtils.savePodcast called: podcastId=$podcastId, save=$save")
+        syncScope.launch {
+            Timber.d("[PODCAST_TOGGLE] Sending SavePodcast operation to channel")
+            syncChannel.send(SyncOperation.SavePodcast(podcastId, save))
+        }
+    }
+
+    fun saveEpisode(episodeId: String, save: Boolean, setVideoId: String? = null) {
+        syncScope.launch {
+            syncChannel.send(SyncOperation.SaveEpisode(episodeId, save, setVideoId))
         }
     }
 
@@ -367,7 +393,11 @@ class SyncUtils @Inject constructor(
     suspend fun clearAllLibraryData() = withContext(Dispatchers.IO) {
         Timber.d("[LOGOUT_CLEAR] Starting complete library data cleanup")
         try {
-            // Clear history first
+            // Clear podcast data first
+            Timber.d("[LOGOUT_CLEAR] Clearing podcast data")
+            executeClearPodcastData()
+
+            // Clear history
             Timber.d("[LOGOUT_CLEAR] Clearing listen history and search history")
             database.clearListenHistory()
             database.clearSearchHistory()
@@ -544,6 +574,64 @@ class SyncUtils @Inject constructor(
         }
     }
 
+    private suspend fun executeSubscribeChannel(channelId: String, subscribe: Boolean) = withContext(Dispatchers.IO) {
+        Timber.d("[CHANNEL_TOGGLE] executeSubscribeChannel called: channelId=$channelId, subscribe=$subscribe")
+        if (!isLoggedIn()) {
+            Timber.d("[CHANNEL_TOGGLE] Skipping subscribeChannel - user not logged in")
+            return@withContext
+        }
+
+        Timber.d("[CHANNEL_TOGGLE] User is logged in, calling YouTube.subscribeChannel")
+        withRetry {
+            YouTube.subscribeChannel(channelId, subscribe)
+        }.onSuccess {
+            Timber.d("[CHANNEL_TOGGLE] Successfully subscribed/unsubscribed channel: $channelId")
+            PodcastRefreshTrigger.triggerRefresh()
+        }.onFailure { e ->
+            Timber.e(e, "[CHANNEL_TOGGLE] Failed to subscribe/unsubscribe channel: $channelId")
+        }
+    }
+
+    private suspend fun executeSavePodcast(podcastId: String, save: Boolean) = withContext(Dispatchers.IO) {
+        Timber.d("[PODCAST_TOGGLE] executeSavePodcast called: podcastId=$podcastId, save=$save")
+        if (!isLoggedIn()) {
+            Timber.d("[PODCAST_TOGGLE] Skipping savePodcast - user not logged in")
+            return@withContext
+        }
+
+        Timber.d("[PODCAST_TOGGLE] User is logged in, calling YouTube.savePodcast")
+        withRetry {
+            YouTube.savePodcast(podcastId, save)
+        }.onSuccess {
+            Timber.d("[PODCAST_TOGGLE] Successfully saved/unsaved podcast: $podcastId")
+        }.onFailure { e ->
+            Timber.e(e, "[PODCAST_TOGGLE] Failed to save/unsave podcast: $podcastId")
+        }
+    }
+
+    private suspend fun executeSaveEpisode(episodeId: String, save: Boolean, setVideoId: String?) = withContext(Dispatchers.IO) {
+        if (!isLoggedIn()) {
+            Timber.d("Skipping saveEpisode - user not logged in")
+            return@withContext
+        }
+
+        if (save) {
+            withRetry {
+                YouTube.addEpisodeToSavedEpisodes(episodeId)
+            }.onFailure { e ->
+                Timber.e(e, "Failed to save episode: $episodeId")
+            }
+        } else {
+            if (setVideoId != null) {
+                withRetry {
+                    YouTube.removeEpisodeFromSavedEpisodes(episodeId, setVideoId)
+                }.onFailure { e ->
+                    Timber.e(e, "Failed to remove episode: $episodeId")
+                }
+            }
+        }
+    }
+
     private suspend fun executeSyncLikedSongs() = withContext(Dispatchers.IO) {
         if (!isLoggedIn()) {
             Timber.w("Skipping syncLikedSongs - user not logged in")
@@ -669,81 +757,65 @@ class SyncUtils @Inject constructor(
     }
 
     private suspend fun executeSyncUploadedSongs() = withContext(Dispatchers.IO) {
-        Timber.d("[UPLOAD_DEBUG] executeSyncUploadedSongs() started")
         if (!isLoggedIn()) {
-            Timber.w("[UPLOAD_DEBUG] Skipping syncUploadedSongs - user not logged in")
+            Timber.w("Skipping syncUploadedSongs - user not logged in")
             return@withContext
         }
-        Timber.d("[UPLOAD_DEBUG] User is logged in, proceeding with sync")
 
         updateState { copy(uploadedSongs = SyncStatus.Syncing, currentOperation = "Syncing uploaded songs") }
 
         withRetry {
-            Timber.d("[UPLOAD_DEBUG] Calling YouTube.library(FEmusic_library_privately_owned_tracks, tabIndex=1)")
             // Uploaded songs are in Tab 1 ("Uploads"), not Tab 0 ("Library")
             YouTube.library("FEmusic_library_privately_owned_tracks", tabIndex = 1).completed()
         }.onSuccess { result ->
-            Timber.d("[UPLOAD_DEBUG] withRetry succeeded, result isSuccess=${result.isSuccess}")
             result.onSuccess { page ->
                 try {
-                    Timber.d("[UPLOAD_DEBUG] Page received, total items: ${page.items.size}")
-                    page.items.forEachIndexed { index, item ->
-                        Timber.d("[UPLOAD_DEBUG] Page item $index: type=${item::class.simpleName}, id=${(item as? SongItem)?.id ?: "N/A"}")
-                    }
                     val remoteSongs = page.items.filterIsInstance<SongItem>().reversed()
-                    Timber.d("[UPLOAD_DEBUG] Filtered to ${remoteSongs.size} SongItems")
-                    remoteSongs.forEachIndexed { index, song ->
-                        Timber.d("[UPLOAD_DEBUG] Remote song $index: id=${song.id}, title=${song.title}, artists=${song.artists.map { it.name }}")
-                    }
                     val remoteIds = remoteSongs.map { it.id }.toSet()
                     val localSongs = database.uploadedSongsByNameAsc().first()
-                    Timber.d("[UPLOAD_DEBUG] Local uploaded songs count: ${localSongs.size}")
 
-                    val songsToRemove = localSongs.filterNot { it.id in remoteIds }
-                    Timber.d("[UPLOAD_DEBUG] Songs to remove from uploaded: ${songsToRemove.size}")
-                    songsToRemove.forEach { song ->
+                    // Remove uploaded flag from songs no longer in remote
+                    localSongs.filterNot { it.id in remoteIds }.forEach { song ->
                         try {
-                            Timber.d("[UPLOAD_DEBUG] Removing uploaded flag from: ${song.id}")
                             database.update(song.song.toggleUploaded())
                             delay(DB_OPERATION_DELAY_MS)
                         } catch (e: Exception) {
-                            Timber.e(e, "[UPLOAD_DEBUG] Failed to update song: ${song.id}")
+                            Timber.e(e, "Failed to update song: ${song.id}")
                         }
                     }
 
+                    // Sync remote songs to local database
                     remoteSongs.forEach { song ->
                         try {
                             val dbSong = database.song(song.id).firstOrNull()
-                            Timber.d("[UPLOAD_DEBUG] Processing remote song ${song.id}: exists in db=${dbSong != null}, isUploaded=${dbSong?.song?.isUploaded}")
                             database.transaction {
                                 if (dbSong == null) {
-                                    Timber.d("[UPLOAD_DEBUG] Inserting new song: ${song.id}")
                                     insert(song.toMediaMetadata()) { it.toggleUploaded() }
                                 } else if (!dbSong.song.isUploaded) {
-                                    Timber.d("[UPLOAD_DEBUG] Updating existing song to uploaded: ${song.id}")
-                                    update(dbSong.song.toggleUploaded())
-                                } else {
-                                    Timber.d("[UPLOAD_DEBUG] Song already marked as uploaded: ${song.id}")
+                                    update(dbSong.song.copy(isUploaded = true, uploadEntityId = song.uploadEntityId))
+                                } else if (dbSong.song.uploadEntityId != song.uploadEntityId && song.uploadEntityId != null) {
+                                    // Update uploadEntityId if it differs from remote
+                                    update(dbSong.song.copy(uploadEntityId = song.uploadEntityId))
                                 }
                             }
                             delay(DB_OPERATION_DELAY_MS)
                         } catch (e: Exception) {
-                            Timber.e(e, "[UPLOAD_DEBUG] Failed to process song: ${song.id}")
+                            Timber.e(e, "Failed to process song: ${song.id}")
                         }
                     }
 
                     updateState { copy(uploadedSongs = SyncStatus.Completed) }
-                    Timber.d("[UPLOAD_DEBUG] Synced ${remoteSongs.size} uploaded songs successfully")
+                    Timber.d("Synced ${remoteSongs.size} uploaded songs")
                 } catch (e: Exception) {
-                    Timber.e(e, "[UPLOAD_DEBUG] Error processing uploaded songs")
+                    Timber.e(e, "Error processing uploaded songs")
                     updateState { copy(uploadedSongs = SyncStatus.Error(e.message ?: "Unknown error")) }
                 }
             }.onFailure { e ->
-                Timber.e(e, "[UPLOAD_DEBUG] Failed to fetch uploaded songs from YouTube")
+                Timber.e(e, "Failed to fetch uploaded songs from YouTube")
                 updateState { copy(uploadedSongs = SyncStatus.Error(e.message ?: "Unknown error")) }
             }
         }.onFailure { e ->
-            Timber.e(e, "[UPLOAD_DEBUG] Failed to sync uploaded songs after retries")
+            Timber.e(e, "Failed to sync uploaded songs after retries")
             updateState { copy(uploadedSongs = SyncStatus.Error(e.message ?: "Unknown error")) }
         }
     }
@@ -990,6 +1062,7 @@ class SyncUtils @Inject constructor(
 
                             database.transaction {
                                 if (dbPodcast == null) {
+                                    // Only add truly new podcasts from server
                                     Timber.d("[PODCAST_SYNC] Inserting new podcast: ${podcast.id}")
                                     insert(
                                         PodcastEntity(
@@ -997,22 +1070,27 @@ class SyncUtils @Inject constructor(
                                             title = podcast.title,
                                             author = podcast.author?.name,
                                             thumbnailUrl = podcast.thumbnail,
+                                            channelId = podcast.channelId ?: podcast.author?.id,
                                             bookmarkedAt = LocalDateTime.now(),
                                         )
                                     )
-                                } else if (dbPodcast.bookmarkedAt == null) {
-                                    Timber.d("[PODCAST_SYNC] Updating existing podcast to saved: ${podcast.id}")
+                                } else if (dbPodcast.bookmarkedAt != null) {
+                                    // Update metadata for already-saved podcasts, but don't re-bookmark
+                                    // ones that user has removed locally (respect local state)
+                                    Timber.d("[PODCAST_SYNC] Updating metadata for saved podcast: ${podcast.id}")
                                     update(
                                         dbPodcast.copy(
                                             title = podcast.title,
                                             author = podcast.author?.name,
                                             thumbnailUrl = podcast.thumbnail,
-                                            bookmarkedAt = LocalDateTime.now(),
+                                            channelId = podcast.channelId ?: podcast.author?.id ?: dbPodcast.channelId,
                                             lastUpdateTime = LocalDateTime.now(),
                                         )
                                     )
                                 } else {
-                                    Timber.d("[PODCAST_SYNC] Podcast already saved: ${podcast.id}")
+                                    // Podcast exists locally but is unbookmarked - user removed it
+                                    // Don't re-add; the server removal is likely still pending
+                                    Timber.d("[PODCAST_SYNC] Skipping unbookmarked podcast: ${podcast.id}")
                                 }
                             }
                             delay(DB_OPERATION_DELAY_MS)
@@ -1051,6 +1129,7 @@ class SyncUtils @Inject constructor(
 
                             database.transaction {
                                 if (dbPodcast == null) {
+                                    // Only add truly new podcasts from server
                                     Timber.d("[PODCAST_SYNC] Inserting new subscribed channel: ${podcast.id}")
                                     insert(
                                         PodcastEntity(
@@ -1058,20 +1137,25 @@ class SyncUtils @Inject constructor(
                                             title = podcast.title,
                                             author = podcast.author?.name,
                                             thumbnailUrl = podcast.thumbnail,
+                                            channelId = podcast.channelId ?: podcast.author?.id,
                                             bookmarkedAt = LocalDateTime.now(),
                                         )
                                     )
-                                } else if (dbPodcast.bookmarkedAt == null) {
-                                    Timber.d("[PODCAST_SYNC] Updating existing channel to subscribed: ${podcast.id}")
+                                } else if (dbPodcast.bookmarkedAt != null) {
+                                    // Update metadata for already-saved podcasts
+                                    Timber.d("[PODCAST_SYNC] Updating metadata for subscribed channel: ${podcast.id}")
                                     update(
                                         dbPodcast.copy(
                                             title = podcast.title,
                                             author = podcast.author?.name,
                                             thumbnailUrl = podcast.thumbnail,
-                                            bookmarkedAt = LocalDateTime.now(),
+                                            channelId = podcast.channelId ?: podcast.author?.id ?: dbPodcast.channelId,
                                             lastUpdateTime = LocalDateTime.now(),
                                         )
                                     )
+                                } else {
+                                    // Podcast exists locally but is unbookmarked - don't re-add
+                                    Timber.d("[PODCAST_SYNC] Skipping unbookmarked channel: ${podcast.id}")
                                 }
                             }
                             delay(DB_OPERATION_DELAY_MS)
@@ -1468,7 +1552,7 @@ class SyncUtils @Inject constructor(
                 // Clear uploaded songs
                 val uploadedSongs = database.uploadedSongsByNameAsc().first()
                 uploadedSongs.forEach {
-                    database.update(it.song.copy(isUploaded = false))
+                    database.update(it.song.copy(isUploaded = false, uploadEntityId = null))
                 }
 
                 // Clear uploaded albums

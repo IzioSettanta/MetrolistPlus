@@ -5,19 +5,21 @@
 # For more details, see
 #   http://developer.android.com/guide/developing/tools/proguard.html
 
-# WEB_REMIX Streaming - NTransformSolver WebView JavaScript interface
--keepclassmembers class com.metrolist.music.utils.cipher.NTransformSolver$SolverWebView {
+# WEB_REMIX Streaming - WebView JavaScript interfaces
+-keepclassmembers class com.metrolist.music.utils.sabr.EjsNTransformSolver$SolverWebView {
+    @android.webkit.JavascriptInterface public *;
+}
+-keepclassmembers class com.metrolist.music.utils.cipher.CipherWebView {
+    @android.webkit.JavascriptInterface public *;
+}
+-keepclassmembers class com.metrolist.music.utils.potoken.PoTokenWebView {
     @android.webkit.JavascriptInterface public *;
 }
 
-# Keep cipher utility classes (SignatureDeobfuscator, NTransformSolver, CipherManager, etc.)
+# Keep streaming utility classes
 -keep class com.metrolist.music.utils.cipher.** { *; }
--keep class com.metrolist.innertube.utils.PoTokenGenerator { *; }
-
-# Keep SignatureDeobfuscator inner types (Op, OpType) for reflection-safe serialization
--keepclassmembers class com.metrolist.music.utils.cipher.SignatureDeobfuscator {
-    *;
-}
+-keep class com.metrolist.music.utils.sabr.** { *; }
+-keep class com.metrolist.music.utils.potoken.** { *; }
 
 # Keep coroutine continuation for WebView callbacks
 -keepclassmembers class * {
@@ -92,10 +94,6 @@
 -keep class jdk.dynalink.** { *; }
 -dontwarn jdk.dynalink.**
 
-## Listen Together Protobuf
--keep class com.metrolist.music.listentogether.proto.** { *; }
--keepclassmembers class com.metrolist.music.listentogether.proto.** { *; }
-
 ## Logging (does not affect Timber)
 -assumenosideeffects class android.util.Log {
     public static boolean isLoggable(java.lang.String, int);
@@ -159,6 +157,10 @@
 -keep class io.ktor.** { *; }
 -keepclassmembers class io.ktor.** { *; }
 -dontwarn io.ktor.**
+
+## Listen Together Protobuf
+-keep class com.metrolist.music.listentogether.proto.** { *; }
+-keepclassmembers class com.metrolist.music.listentogether.proto.** { *; }
 
 ## Shazam Models
 -keep class com.metrolist.shazamkit.models.** { *; }

@@ -142,7 +142,7 @@ fun PlayerMenu(
     AddToPlaylistDialog(
         isVisible = showChoosePlaylistDialog,
         onGetSong = { playlist ->
-            database.transaction {
+            database.withTransaction {
                 insert(mediaMetadata)
             }
             coroutineScope.launch(Dispatchers.IO) {

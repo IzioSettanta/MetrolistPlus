@@ -440,11 +440,19 @@ val LyricsLineSpacingKey = floatPreferencesKey("lyricsLineSpacing")
 
 val PlayerVolumeKey = floatPreferencesKey("playerVolume")
 val SleepTimerDefaultKey = floatPreferencesKey("sleepTimerDefault")
+val SleepTimerStopAfterCurrentSongKey = booleanPreferencesKey("sleepTimerStopAfterCurrentSong")
+val SleepTimerFadeOutKey = booleanPreferencesKey("sleepTimerFadeOut")
 val RepeatModeKey = intPreferencesKey("repeatMode")
 
 val SearchSourceKey = stringPreferencesKey("searchSource")
 val SwipeThumbnailKey = booleanPreferencesKey("swipeThumbnail")
 val SwipeSensitivityKey = floatPreferencesKey("swipeSensitivity")
+val SleepTimerEnabledKey = booleanPreferencesKey("sleepTimerEnabled")
+val SleepTimerRepeatKey = stringPreferencesKey("sleepTimerRepeat")
+val SleepTimerStartTimeKey = stringPreferencesKey("sleepTimerStartTime")
+val SleepTimerEndTimeKey = stringPreferencesKey("sleepTimerEndTime")
+val SleepTimerCustomDaysKey = stringPreferencesKey("sleepTimerCustomDays")
+val SleepTimerDayTimesKey = stringPreferencesKey("sleepTimerDayTimes")
 
 enum class SearchSource {
     LOCAL,
