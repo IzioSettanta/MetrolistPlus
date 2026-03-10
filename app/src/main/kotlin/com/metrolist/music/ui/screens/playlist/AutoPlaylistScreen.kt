@@ -1026,9 +1026,7 @@ private fun AutoPlaylistHeader(
                                     }
                                 }
                             },
-                            onDismiss = { menuState.dismiss() },
-                            songs = songs,
-                            playlistName = name,
+                            onDismiss = { menuState.dismiss() }
                         )
                     }
                 },

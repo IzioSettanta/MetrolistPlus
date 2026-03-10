@@ -79,7 +79,6 @@ import androidx.navigation.NavController
 import coil3.compose.AsyncImage
 import com.metrolist.music.LocalDatabase
 import com.metrolist.music.LocalDownloadUtil
-import com.metrolist.music.LocalListenTogetherManager
 import com.metrolist.music.LocalPlayerAwareWindowInsets
 import com.metrolist.music.LocalPlayerConnection
 import com.metrolist.music.R
@@ -114,8 +113,7 @@ fun AlbumScreen(
     val haptic = LocalHapticFeedback.current
     val coroutineScope = rememberCoroutineScope()
     val playerConnection = LocalPlayerConnection.current ?: return
-    val listenTogetherManager = LocalListenTogetherManager.current
-    val isListenTogetherGuest = listenTogetherManager?.let { it.isInRoom && !it.isHost } ?: false
+    val isListenTogetherGuest = false // ListenTogether temporarily disabled
 
     val scope = rememberCoroutineScope()
 
@@ -356,7 +354,7 @@ fun AlbumScreen(
                         // Play Button - Larger primary circular button
                         Surface(
                             onClick = {
-                                if (!isListenTogetherGuest) {
+                                if (isListenTogetherGuest == false) {
                                     playerConnection.service.getAutomix(playlistId)
                                     playerConnection.playQueue(
                                         LocalAlbumRadio(albumWithSongs),
@@ -466,7 +464,7 @@ fun AlbumScreen(
                                     onClick = {
                                         if (inSelectMode) {
                                             onCheckedChange(song.id !in selection)
-                                        } else if (!isListenTogetherGuest) {
+                                        } else if (isListenTogetherGuest == false) {
                                             if (song.id == mediaMetadata?.id) {
                                                 playerConnection.togglePlayPause()
                                             } else {

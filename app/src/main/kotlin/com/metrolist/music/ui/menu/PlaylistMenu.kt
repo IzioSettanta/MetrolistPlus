@@ -8,6 +8,7 @@ package com.metrolist.music.ui.menu
 import android.content.Intent
 import android.content.res.Configuration
 import android.widget.Toast
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -18,6 +19,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -65,7 +67,6 @@ import com.metrolist.music.ui.component.NewAction
 import com.metrolist.music.ui.component.NewActionGrid
 import com.metrolist.music.ui.component.PlaylistListItem
 import com.metrolist.music.ui.component.TextFieldDialog
-import com.metrolist.music.ui.menu.ExportDialog
 import com.metrolist.music.utils.PlaylistExporter
 import com.metrolist.music.utils.getExportFileUri
 import com.metrolist.music.utils.saveToPublicDocuments
@@ -655,74 +656,88 @@ fun PlaylistMenu(
     val exportPlaylistStr = stringResource(R.string.export_playlist)
 
     if (showExportDialog) {
-        ExportDialog(
-            onDismiss = { showExportDialog = false },
-            onShare = { format ->
-                val playlistSongs =
-                    songs.map { s ->
-                        com.metrolist.music.db.entities.PlaylistSong(
-                            map =
-                                com.metrolist.music.db.entities.PlaylistSongMap(
-                                    songId = s.id,
-                                    playlistId = playlist.id,
-                                    position = 0,
-                                ),
-                            song = s,
-                        )
-                    }
-                val result =
-                    when (format) {
-                        "csv" -> PlaylistExporter.exportPlaylistAsCSV(context, playlist.playlist.name, playlistSongs)
-                        "m3u" -> PlaylistExporter.exportPlaylistAsM3U(context, playlist.playlist.name, playlistSongs)
-                        else -> Result.failure(IllegalArgumentException("Unknown format"))
-                    }
-                result
-                    .onSuccess { file ->
-                        val uri = getExportFileUri(context, file)
-                        val mimeType = if (format == "csv") "text/csv" else "audio/x-mpegurl"
-                        val shareIntent =
-                            Intent(Intent.ACTION_SEND).apply {
-                                type = mimeType
-                                putExtra(Intent.EXTRA_STREAM, uri)
-                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                            }
-                        context.startActivity(Intent.createChooser(shareIntent, exportPlaylistStr))
-                    }.onFailure {
-                        Toast.makeText(context, R.string.export_failed, Toast.LENGTH_SHORT).show()
-                    }
-                showExportDialog = false
+        AlertDialog(
+            onDismissRequest = { showExportDialog = false },
+            title = {
+                Text(text = stringResource(R.string.export_playlist))
             },
-            onSave = { format ->
-                val playlistSongs =
-                    songs.map { s ->
-                        com.metrolist.music.db.entities.PlaylistSong(
-                            map =
-                                com.metrolist.music.db.entities.PlaylistSongMap(
-                                    songId = s.id,
-                                    playlistId = playlist.id,
-                                    position = 0,
-                                ),
-                            song = s,
-                        )
+            text = {
+                Column {
+                    Text(text = "Choose export format:")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    TextButton(
+                        onClick = {
+                            val playlistSongs =
+                                songs.map { s ->
+                                    com.metrolist.music.db.entities.PlaylistSong(
+                                        map =
+                                            com.metrolist.music.db.entities.PlaylistSongMap(
+                                                songId = s.id,
+                                                playlistId = playlist.id,
+                                                position = 0,
+                                            ),
+                                        song = s,
+                                    )
+                                }
+                            val result = PlaylistExporter.exportPlaylistAsCSV(context, playlist.playlist.name, playlistSongs)
+                            result
+                                .onSuccess { file ->
+                                    val uri = getExportFileUri(context, file)
+                                    val shareIntent =
+                                        Intent(Intent.ACTION_SEND).apply {
+                                            type = "text/csv"
+                                            putExtra(Intent.EXTRA_STREAM, uri)
+                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                        }
+                                    context.startActivity(Intent.createChooser(shareIntent, exportPlaylistStr))
+                                }.onFailure {
+                                    Toast.makeText(context, R.string.export_failed, Toast.LENGTH_SHORT).show()
+                                }
+                            showExportDialog = false
+                        }
+                    ) {
+                        Text("CSV")
                     }
-                val export =
-                    when (format) {
-                        "csv" -> PlaylistExporter.exportPlaylistAsCSV(context, playlist.playlist.name, playlistSongs)
-                        "m3u" -> PlaylistExporter.exportPlaylistAsM3U(context, playlist.playlist.name, playlistSongs)
-                        else -> Result.failure(IllegalArgumentException("Unknown format"))
+                    TextButton(
+                        onClick = {
+                            val playlistSongs =
+                                songs.map { s ->
+                                    com.metrolist.music.db.entities.PlaylistSong(
+                                        map =
+                                            com.metrolist.music.db.entities.PlaylistSongMap(
+                                                songId = s.id,
+                                                playlistId = playlist.id,
+                                                position = 0,
+                                            ),
+                                        song = s,
+                                    )
+                                }
+                            val result = PlaylistExporter.exportPlaylistAsM3U(context, playlist.playlist.name, playlistSongs)
+                            result
+                                .onSuccess { file ->
+                                    val uri = getExportFileUri(context, file)
+                                    val shareIntent =
+                                        Intent(Intent.ACTION_SEND).apply {
+                                            type = "audio/x-mpegurl"
+                                            putExtra(Intent.EXTRA_STREAM, uri)
+                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                        }
+                                    context.startActivity(Intent.createChooser(shareIntent, exportPlaylistStr))
+                                }.onFailure {
+                                    Toast.makeText(context, R.string.export_failed, Toast.LENGTH_SHORT).show()
+                                }
+                            showExportDialog = false
+                        }
+                    ) {
+                        Text("M3U")
                     }
-                export
-                    .onSuccess { file ->
-                        val mimeType = if (format == "csv") "text/csv" else "audio/x-mpegurl"
-                        val save = saveToPublicDocuments(context, file, mimeType)
-                        save
-                            .onSuccess { Toast.makeText(context, R.string.export_success, Toast.LENGTH_SHORT).show() }
-                            .onFailure { Toast.makeText(context, R.string.export_failed, Toast.LENGTH_SHORT).show() }
-                    }.onFailure {
-                        Toast.makeText(context, R.string.export_failed, Toast.LENGTH_SHORT).show()
-                    }
-                showExportDialog = false
+                }
             },
+            confirmButton = {
+                TextButton(onClick = { showExportDialog = false }) {
+                    Text(stringResource(android.R.string.cancel))
+                }
+            }
         )
     }
 }

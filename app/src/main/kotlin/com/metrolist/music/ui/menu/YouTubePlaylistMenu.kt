@@ -12,6 +12,7 @@ import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -26,6 +27,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -720,74 +722,86 @@ fun YouTubePlaylistMenu(
     }
 
     if (showExportDialog) {
-        ExportDialog(
-            onDismiss = { showExportDialog = false },
-            onShare = { format ->
-                coroutineScope.launch {
-                    val ytSongs =
-                        if (songs.isEmpty()) {
-                            withContext(Dispatchers.IO) {
-                                YouTube
-                                    .playlist(playlist.id)
-                                    .completed()
-                                    .getOrNull()
-                                    ?.songs
-                                    .orEmpty()
-                            }
-                        } else {
-                            songs
-                        }
-
-                    val result =
-                        when (format) {
-                            "csv" -> exportYouTubePlaylistAsCSV(context, playlist.title, ytSongs)
-                            "m3u" -> exportYouTubePlaylistAsM3U(context, playlist.title, ytSongs)
-                            else -> Result.failure(IllegalArgumentException("Unknown format"))
-                        }
-                    result
-                        .onSuccess { file ->
-                            val uri = getExportFileUri(context, file)
-                            val mime = if (format == "csv") "text/csv" else "audio/x-mpegurl"
-                            shareFile(context, uri, mime)
-                        }.onFailure {
-                            Toast.makeText(context, R.string.export_failed, Toast.LENGTH_SHORT).show()
-                        }
-                }
-                onDismiss()
+        AlertDialog(
+            onDismissRequest = { showExportDialog = false },
+            title = {
+                Text(text = stringResource(R.string.export_playlist))
             },
-            onSave = { format ->
-                coroutineScope.launch {
-                    val ytSongs =
-                        if (songs.isEmpty()) {
-                            withContext(Dispatchers.IO) {
-                                YouTube
-                                    .playlist(playlist.id)
-                                    .completed()
-                                    .getOrNull()
-                                    ?.songs
-                                    .orEmpty()
-                            }
-                        } else {
-                            songs
-                        }
+            text = {
+                Column {
+                    Text(text = "Choose export format:")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    TextButton(
+                        onClick = {
+                            coroutineScope.launch {
+                                val ytSongs =
+                                    if (songs.isEmpty()) {
+                                        withContext(Dispatchers.IO) {
+                                            YouTube
+                                                .playlist(playlist.id)
+                                                .completed()
+                                                .getOrNull()
+                                                ?.songs
+                                                .orEmpty()
+                                        }
+                                    } else {
+                                        songs
+                                    }
 
-                    val export =
-                        when (format) {
-                            "csv" -> exportYouTubePlaylistAsCSV(context, playlist.title, ytSongs)
-                            "m3u" -> exportYouTubePlaylistAsM3U(context, playlist.title, ytSongs)
-                            else -> Result.failure(IllegalArgumentException("Unknown format"))
+                                val result = exportYouTubePlaylistAsCSV(context, playlist.title, ytSongs)
+                                result
+                                    .onSuccess { file ->
+                                        val uri = getExportFileUri(context, file)
+                                        val mime = "text/csv"
+                                        shareFile(context, uri, mime)
+                                    }.onFailure {
+                                        Toast.makeText(context, R.string.export_failed, Toast.LENGTH_SHORT).show()
+                                    }
+                                onDismiss()
+                            }
                         }
-                    export
-                        .onSuccess { file ->
-                            val mime = if (format == "csv") "text/csv" else "audio/x-mpegurl"
-                            val save = saveToPublicDocuments(context, file, mime)
-                            save
-                                .onSuccess { Toast.makeText(context, R.string.export_success, Toast.LENGTH_SHORT).show() }
-                                .onFailure { Toast.makeText(context, R.string.export_failed, Toast.LENGTH_SHORT).show() }
-                        }.onFailure { Toast.makeText(context, R.string.export_failed, Toast.LENGTH_SHORT).show() }
+                    ) {
+                        Text("CSV")
+                    }
+                    TextButton(
+                        onClick = {
+                            coroutineScope.launch {
+                                val ytSongs =
+                                    if (songs.isEmpty()) {
+                                        withContext(Dispatchers.IO) {
+                                            YouTube
+                                                .playlist(playlist.id)
+                                                .completed()
+                                                .getOrNull()
+                                                ?.songs
+                                                .orEmpty()
+                                        }
+                                    } else {
+                                        songs
+                                    }
+
+                                val result = exportYouTubePlaylistAsM3U(context, playlist.title, ytSongs)
+                                result
+                                    .onSuccess { file ->
+                                        val uri = getExportFileUri(context, file)
+                                        val mime = "audio/x-mpegurl"
+                                        shareFile(context, uri, mime)
+                                    }.onFailure {
+                                        Toast.makeText(context, R.string.export_failed, Toast.LENGTH_SHORT).show()
+                                    }
+                                onDismiss()
+                            }
+                        }
+                    ) {
+                        Text("M3U")
+                    }
                 }
-                onDismiss()
             },
+            confirmButton = {
+                TextButton(onClick = { showExportDialog = false }) {
+                    Text(stringResource(android.R.string.cancel))
+                }
+            }
         )
     }
 }
