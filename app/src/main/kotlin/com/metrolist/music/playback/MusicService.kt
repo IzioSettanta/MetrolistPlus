@@ -2118,6 +2118,10 @@ class MusicService :
                 resetRetryCount(mediaId)
                 Timber.tag(TAG).d("Playback successful for $mediaId, reset retry count")
             }
+            
+            // Ensure loudness enhancement is applied when player is ready
+            setupLoudnessEnhancer()
+            
             scheduleCrossfade()
         }
 
