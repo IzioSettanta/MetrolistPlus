@@ -56,4 +56,19 @@ constructor(
         get() = song.thumbnailUrl
     val romanizeLyrics: Boolean
         get() = song.romanizeLyrics
+
+    val isDownloaded: Boolean
+        get() = song.isDownloaded
+
+    val orderedArtists: List<ArtistEntity>
+        get() {
+            if (artistMaps.isEmpty()) return artists
+
+            val artistsById = artists.associateBy { it.id }
+            val sorted = artistMaps
+                .sortedBy { it.position }
+                .mapNotNull { map -> artistsById[map.artistId] }
+
+            return sorted.ifEmpty { artists }
+        }
 }
