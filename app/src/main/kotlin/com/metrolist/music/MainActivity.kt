@@ -278,14 +278,24 @@ private val serviceConnection =
             }
         }
 
-        // On Android 12+, we can't start foreground services from background
-        // Use BIND_AUTO_CREATE which will create the service if needed
-        // The service will call startForeground() in onCreate() when bound
-        bindService(
-            Intent(this, MusicService::class.java),
-            serviceConnection,
-            BIND_AUTO_CREATE,
-        )
+        // Explicitly start the service so it becomes an "explicitly started" service.
+        // Without this, the service only exists while a client is bound (BIND_AUTO_CREATE).
+        // When onStop() releases the binding (e.g. screen off, app backgrounded), Media3's
+        // MediaNotificationManager tries to keep the service alive, but this is blocked on
+        // Android 12+ when the app is in the background. Using startForegroundService() ensures
+        // the service persists independently of binding state on all Android versions, including
+        // Android 16+ where startService() from background contexts is not allowed.
+        ContextCompat.startForegroundService(this, Intent(this, MusicService::class.java))
+        
+        // Bind to service - if already bound, this is a no-op but ensures we stay connected
+        if (!isServiceBound) {
+            bindService(
+                Intent(this, MusicService::class.java),
+                serviceConnection,
+                BIND_AUTO_CREATE,
+            )
+            isServiceBound = true
+        }
     }
 
     override fun onStop() {
