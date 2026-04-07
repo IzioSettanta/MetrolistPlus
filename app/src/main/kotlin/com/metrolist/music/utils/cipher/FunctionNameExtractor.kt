@@ -85,7 +85,6 @@ object FunctionNameExtractor {
         Regex("""/s/player/([a-f0-9]{8})/""")
     )
 
->>>>>>> 93ccf89e (fix: update cipher obfuscation data)
     // Modern 2025+ signature deobfuscation function patterns
     // The sig function is called as: FUNC(NUMBER, decodeURIComponent(encryptedSig))
     // within a logical expression: VAR && (VAR = FUNC(NUM, decodeURIComponent(VAR)), ...)
@@ -118,16 +117,6 @@ object FunctionNameExtractor {
         Regex("""([a-zA-Z0-9$]+)\s*=\s*function\([a-zA-Z0-9]\)\s*\{[^}]*?enhanced_except_"""),
     )
 
-    data class SigFunctionInfo(
-        val name: String,
-        val constantArg: Int? // The first numeric argument (e.g., 8 in DE(8, sig))
-    )
-
-    data class NFunctionInfo(
-        val name: String,
-        val arrayIndex: Int? // e.g. FUNC[0] -> index=0
-    )
-
     fun extractSigFunctionInfo(playerJs: String): SigFunctionInfo? {
         for ((index, pattern) in SIG_FUNCTION_PATTERNS.withIndex()) {
             val match = pattern.find(playerJs)
@@ -135,7 +124,14 @@ object FunctionNameExtractor {
                 val name = match.groupValues[1]
                 val constArg = if (match.groupValues.size > 2) match.groupValues[2].toIntOrNull() else null
                 Timber.tag(TAG).d("Sig function found with pattern $index: $name (constantArg=$constArg)")
-                return SigFunctionInfo(name, constArg)
+                return SigFunctionInfo(
+                    name = name,
+                    constantArg = constArg,
+                    constantArgs = if (constArg != null) listOf(constArg) else null,
+                    preprocessFunc = null,
+                    preprocessArgs = null,
+                    isHardcoded = false
+                )
             }
         }
         Timber.tag(TAG).e("Could not find signature deobfuscation function name")
@@ -152,19 +148,34 @@ object FunctionNameExtractor {
                         val name = match.groupValues[1]
                         val arrayIdx = match.groupValues[2].toIntOrNull()
                         Timber.tag(TAG).d("N-function found with pattern $index: $name (arrayIndex=$arrayIdx)")
-                        return NFunctionInfo(name, arrayIdx)
+                        return NFunctionInfo(
+                            name = name,
+                            arrayIndex = arrayIdx,
+                            constantArgs = null,
+                            isHardcoded = false
+                        )
                     }
                     1 -> {
                         // Pattern 2: group2=funcName, group3=arrayIndex (optional)
                         val name = match.groupValues[2]
                         val arrayIdx = match.groupValues[3].toIntOrNull()
                         Timber.tag(TAG).d("N-function found with pattern $index: $name (arrayIndex=$arrayIdx)")
-                        return NFunctionInfo(name, arrayIdx)
+                        return NFunctionInfo(
+                            name = name,
+                            arrayIndex = arrayIdx,
+                            constantArgs = null,
+                            isHardcoded = false
+                        )
                     }
                     else -> {
                         val name = match.groupValues[1]
                         Timber.tag(TAG).d("N-function found with pattern $index: $name")
-                        return NFunctionInfo(name, null)
+                        return NFunctionInfo(
+                            name = name,
+                            arrayIndex = null,
+                            constantArgs = null,
+                            isHardcoded = false
+                        )
                     }
                 }
             }
