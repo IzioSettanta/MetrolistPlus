@@ -37,4 +37,5 @@ object YouTubeLyricsProvider : LyricsProvider {
             if (e is CancellationException) throw e
             Result.failure(e)
         }
+    }
 }

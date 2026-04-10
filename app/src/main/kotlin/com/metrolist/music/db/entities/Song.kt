@@ -30,6 +30,13 @@ constructor(
     val artists: List<ArtistEntity>,
 
     @Relation(
+        entity = SortedSongArtistMap::class,
+        parentColumn = "id",
+        entityColumn = "songId",
+    )
+    val artistMaps: List<SortedSongArtistMap> = emptyList(),
+
+    @Relation(
         entity = AlbumEntity::class,
         entityColumn = "id",
         parentColumn = "id",

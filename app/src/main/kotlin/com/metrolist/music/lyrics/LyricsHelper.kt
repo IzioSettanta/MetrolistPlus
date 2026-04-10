@@ -140,7 +140,6 @@ constructor(
                         .d("Trying provider: ${provider.name} for $cleanedTitle (timeout: ${perProviderTimeout}ms)")
                     val result = withTimeoutOrNull(perProviderTimeout) {
                         provider.getLyrics(
-                            context,
                             mediaMetadata.id,
                             cleanedTitle,
                             mediaMetadata.artists.joinToString { it.name },
@@ -151,8 +150,7 @@ constructor(
                     when {
                         result?.isSuccess == true -> {
                             Timber.tag("LyricsHelper").i("Successfully got lyrics from ${provider.name}")
-                            val filteredLyrics = LyricsUtils.filterLyricsCreditLines(result.getOrNull()!!)
-                            return@withTimeoutOrNull LyricsWithProvider(filteredLyrics, provider.name)
+                            return@withTimeoutOrNull LyricsWithProvider(result.getOrNull()!!, provider.name)
                         }
                         result == null -> {
                             Timber.tag("LyricsHelper").w("${provider.name} timed out after ${perProviderTimeout}ms")

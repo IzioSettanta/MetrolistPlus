@@ -388,7 +388,6 @@ object LyricsPlusProvider : LyricsProvider {
             if (c < 10) append('0')
             append(c).append(']')
         }
->>>>>>> 254eef4a (fix the lyricsplus parser (#3474))
     }
 
     override suspend fun getLyrics(
@@ -433,6 +432,6 @@ object LyricsPlusProvider : LyricsProvider {
         album: String?,
         callback: (String) -> Unit,
     ) {
-        getLyrics(context, id, title, artist, duration, album).onSuccess { callback(it) }
+        getLyrics(id, title, artist, duration, album).onSuccess { callback(it) }
     }
 }

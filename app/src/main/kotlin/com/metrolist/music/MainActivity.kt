@@ -232,6 +232,7 @@ class MainActivity : ComponentActivity() {
     private var latestVersionName by mutableStateOf(BuildConfig.VERSION_NAME)
 
     private var playerConnection by mutableStateOf<PlayerConnection?>(null)
+    private var isServiceBound = false
 
 private val serviceConnection =
         object : ServiceConnection {
@@ -300,6 +301,7 @@ private val serviceConnection =
 
     override fun onStop() {
         unbindService(serviceConnection)
+        isServiceBound = false
         super.onStop()
     }
 
