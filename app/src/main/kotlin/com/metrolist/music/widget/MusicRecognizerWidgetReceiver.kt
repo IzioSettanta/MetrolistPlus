@@ -333,8 +333,8 @@ class MusicRecognizerWidgetReceiver : AppWidgetProvider() {
         )
 
     companion object {
-        const val ACTION_START_RECOGNITION = "com.metrolist.music.widget.recognizer.TAP_MIC"
-        const val ACTION_UPDATE_WIDGET = "com.metrolist.music.widget.recognizer.UPDATE"
-        const val ACTION_RESET_STATE = "com.metrolist.music.widget.recognizer.RESET"
+        const val ACTION_START_RECOGNITION = "com.metrolist.music.byd.widget.recognizer.TAP_MIC"
+        const val ACTION_UPDATE_WIDGET = "com.metrolist.music.byd.widget.recognizer.UPDATE"
+        const val ACTION_RESET_STATE = "com.metrolist.music.byd.widget.recognizer.RESET"
     }
 }

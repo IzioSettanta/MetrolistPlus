@@ -472,7 +472,7 @@
     <string name="wrapped_total_artists_subtitle">unique artists!</string>
     <string name="wrapped_total_songs_title">You\'ve listened to</string>
     <string name="wrapped_total_songs_subtitle">unique songs!</string>
-    <string name="wrapped_intro_title">METROLIST</string>
+    <string name="wrapped_intro_title">METROLIST FOR BYD</string>
     <string name="wrapped_intro_subtitle">it\'s time to see what you\'ve been listening to all this year…</string>
     <string name="wrapped_intro_button">let\'s go!</string>
     <string name="wrapped_logo_content_description">Metrolist Logo</string>
@@ -792,6 +792,8 @@
     <string name="importing_csv">Importing CSV…</string>
     <string name="importing_playlist">Importing playlist…</string>
 
+    <string name="voice_search">Voice search</string>
+
     <string name="recently_converted">Recently converted</string>
     <string name="column_label">Column %d</string>
 
@@ -859,7 +861,7 @@
     <string name="like_what_i_do">Like what I do?</string>
     <string name="buy_mo_a_coffee">Buy me a coffee!</string>
     <string name="community_and_info">Community &amp; Info</string>
-    <string name="metrolist">METROLIST</string>
+    <string name="metrolist">METROLIST FOR BYD</string>
     <string name="wanna_play_favorite_song">Want to play their favorite song?</string>
     <string name="yeah">Yeah!</string>
     <string name="stands_with_palestine">This project stands with Palestine 🇵🇸</string>
