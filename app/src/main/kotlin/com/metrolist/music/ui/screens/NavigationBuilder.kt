@@ -78,7 +78,16 @@ fun NavGraphBuilder.navigationBuilder(
         HomeScreen(snackbarHostState = snackbarHostState)
     }
 
-    composable(Screens.Search.route) { backStackEntry ->
+    composable(
+        route = Screens.Search.route + "?voiceSearch={voiceSearch}",
+        arguments =
+            listOf(
+                navArgument("voiceSearch") {
+                    type = NavType.BoolType
+                    defaultValue = false
+                },
+            ),
+    ) { backStackEntry ->
         val pureBlackEnabled by rememberPreference(PureBlackKey, defaultValue = false)
         val darkTheme by rememberEnumPreference(DarkModeKey, defaultValue = DarkMode.AUTO)
         val isSystemInDarkTheme = isSystemInDarkTheme()
@@ -92,7 +101,7 @@ fun NavGraphBuilder.navigationBuilder(
             }
         SearchScreen(
             pureBlack = pureBlack,
-            savedStateHandle = backStackEntry.savedStateHandle
+            savedStateHandle = backStackEntry.savedStateHandle,
         )
     }
 
