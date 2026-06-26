@@ -206,6 +206,15 @@ fun SearchScreen(
         }
     }
 
+    val voiceSearchRequested = remember { savedStateHandle.get<Boolean>("voiceSearch") ?: false }
+
+    LaunchedEffect(voiceSearchRequested) {
+        if (voiceSearchRequested) {
+            savedStateHandle["voiceSearch"] = false
+            launchVoiceSearch()
+        }
+    }
+
     val onSearch: (String) -> Unit = { searchQuery -> handleSearch(searchQuery) }
 
     val onSearchFromSuggestion: (String) -> Unit = { searchQuery -> handleSearch(searchQuery) }
