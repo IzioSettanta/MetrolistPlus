@@ -1018,4 +1018,11 @@
     <string name="stream_source_web_creator_desc">Creator web client.</string>
     <string name="stream_source_android_creator">ANDROID_CREATOR</string>
     <string name="stream_source_android_creator_desc">Android creator client. Off by default; needs DroidGuard.</string>
+
+    <!-- Audio Boost -->
+    <string name="audio_boost">Audio Boost</string>
+    <string name="audio_boost_desc">Increase the audio output volume using system enhancement</string>
+    <string name="audio_boost_gain">Boost gain</string>
+    <string name="audio_boost_warning">WARNING: High values (> 2000 mB) can damage your speakers or hearing!</string>
+    <string name="millibels_format">%d mB</string>
 </resources>

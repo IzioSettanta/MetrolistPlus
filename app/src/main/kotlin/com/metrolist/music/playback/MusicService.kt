@@ -93,6 +93,8 @@ import com.metrolist.music.MainActivity
 import com.metrolist.music.R
 import com.metrolist.music.constants.AndroidAutoTargetPlaylistKey
 import com.metrolist.music.constants.AudioNormalizationKey
+import com.metrolist.music.constants.AudioBoostEnabledKey
+import com.metrolist.music.constants.AudioBoostGainKey
 import com.metrolist.music.constants.AudioOffload
 import com.metrolist.music.constants.AudioQualityKey
 import com.metrolist.music.constants.AudioTrackPlaybackParamsKey
@@ -170,6 +172,7 @@ import com.metrolist.music.db.entities.RelatedSongMap
 import com.metrolist.music.db.entities.Song
 import com.metrolist.music.di.DownloadCache
 import com.metrolist.music.di.PlayerCache
+import com.metrolist.audioboost.AudioBoostManager
 import com.metrolist.music.eq.EqualizerService
 import com.metrolist.music.eq.audio.CustomEqualizerAudioProcessor
 import com.metrolist.music.eq.data.EQProfileRepository
@@ -283,6 +286,9 @@ class MusicService :
 
     @Inject
     lateinit var widgetManager: MetrolistWidgetManager
+
+    @Inject
+    lateinit var audioBoostManager: AudioBoostManager
 
     @Inject
     lateinit var listenTogetherManager: com.metrolist.music.listentogether.ListenTogetherManager
@@ -901,6 +907,14 @@ class MusicService :
                 if (!enableInstant) {
                     silenceSkipJob?.cancel()
                 }
+            }
+
+        dataStore.data
+            .map { (it[AudioBoostEnabledKey] ?: false) to (it[AudioBoostGainKey] ?: 0) }
+            .distinctUntilChanged()
+            .collectLatest(scope) { (enabled, gain) ->
+                audioBoostManager.setEnabled(enabled)
+                audioBoostManager.setBoostGain(gain)
             }
 
         combine(
@@ -2386,6 +2400,8 @@ class MusicService :
         isAudioEffectSessionOpened = true
         openedAudioEffectSessionId = audioSessionId
 
+        audioBoostManager.setAudioSessionId(audioSessionId)
+
         sendBroadcast(
             Intent(android.media.audiofx.AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION).apply {
                 putExtra(android.media.audiofx.AudioEffect.EXTRA_AUDIO_SESSION, audioSessionId)
@@ -2397,6 +2413,8 @@ class MusicService :
 
     private fun closeAudioEffectSession(sessionIdOverride: Int? = null, clearNormalizationCache: Boolean = true) {
         val sessionIdToClose = sessionIdOverride ?: openedAudioEffectSessionId
+
+        audioBoostManager.release(sessionIdToClose)
 
         loudnessSetupGeneration++
         loudnessSetupJob?.cancel()
@@ -2672,6 +2690,7 @@ class MusicService :
                 }
             } else if (player.playbackState == Player.STATE_IDLE) {
                 closeAudioEffectSession()
+                audioBoostManager.release()
             }
         }
         if (events.containsAny(EVENT_TIMELINE_CHANGED, EVENT_POSITION_DISCONTINUITY)) {
@@ -4057,6 +4076,7 @@ class MusicService :
         connectivityObserver.unregister()
         abandonAudioFocus()
         closeAudioEffectSession()
+        audioBoostManager.release()
         mediaLibrarySessionCallback.release()
         mediaSession?.release()
         player.removeListener(this)

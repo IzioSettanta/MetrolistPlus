@@ -37,6 +37,8 @@ import com.metrolist.music.BuildConfig
 import com.metrolist.music.LocalPlayerAwareWindowInsets
 import com.metrolist.music.R
 import com.metrolist.music.constants.AudioNormalizationKey
+import com.metrolist.music.constants.AudioBoostEnabledKey
+import com.metrolist.music.constants.AudioBoostGainKey
 import com.metrolist.music.constants.AudioOffload
 import com.metrolist.music.constants.AudioTrackPlaybackParamsKey
 import com.metrolist.music.constants.AudioQuality
@@ -126,6 +128,15 @@ fun PlayerSettings(
     val (audioNormalization, onAudioNormalizationChange) = rememberPreference(
         AudioNormalizationKey,
         defaultValue = true
+    )
+
+    val (audioBoostEnabled, onAudioBoostEnabledChange) = rememberPreference(
+        AudioBoostEnabledKey,
+        defaultValue = false
+    )
+    val (audioBoostGain, onAudioBoostGainChange) = rememberPreference(
+        AudioBoostGainKey,
+        defaultValue = 0
     )
 
     val (loudnessLevel, onLoudnessLevelChange) = rememberEnumPreference(
@@ -444,6 +455,52 @@ fun PlayerSettings(
                             Text(getLoudnessLevelLabel(loudnessLevel))
                         },
                         onClick = { showLoudnessLevelDialog = true }
+                    ))
+                }
+                add(Material3SettingsItem(
+                    icon = painterResource(R.drawable.volume_up),
+                    title = { Text(stringResource(R.string.audio_boost)) },
+                    description = { Text(stringResource(R.string.audio_boost_desc)) },
+                    trailingContent = {
+                        Switch(
+                            checked = audioBoostEnabled,
+                            onCheckedChange = onAudioBoostEnabledChange,
+                            thumbContent = {
+                                Icon(
+                                    painter = painterResource(
+                                        id = if (audioBoostEnabled) R.drawable.check else R.drawable.close
+                                    ),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(SwitchDefaults.IconSize)
+                                )
+                            }
+                        )
+                    },
+                    onClick = { onAudioBoostEnabledChange(!audioBoostEnabled) }
+                ))
+                if (audioBoostEnabled) {
+                    add(Material3SettingsItem(
+                        icon = painterResource(R.drawable.volume_up),
+                        title = { Text(stringResource(R.string.audio_boost_gain)) },
+                        description = {
+                            Column {
+                                Text(stringResource(R.string.millibels_format, audioBoostGain))
+                                if (audioBoostGain > 2000) {
+                                    Text(
+                                        text = stringResource(R.string.audio_boost_warning),
+                                        color = androidx.compose.material3.MaterialTheme.colorScheme.error,
+                                        style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
+                                        modifier = Modifier.padding(top = 4.dp)
+                                    )
+                                }
+                                Slider(
+                                    value = audioBoostGain.toFloat(),
+                                    onValueChange = { onAudioBoostGainChange(it.roundToInt()) },
+                                    valueRange = 0f..5000f,
+                                    steps = 49
+                                )
+                            }
+                        }
                     ))
                 }
                 add(Material3SettingsItem(
