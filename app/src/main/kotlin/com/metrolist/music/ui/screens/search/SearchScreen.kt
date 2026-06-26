@@ -206,7 +206,7 @@ fun SearchScreen(
         }
     }
 
-    val voiceSearchRequested = remember { savedStateHandle.get<Boolean>("voiceSearch") ?: false }
+    val voiceSearchRequested by savedStateHandle.getStateFlow("voiceSearch", false).collectAsStateWithLifecycle(initialValue = false)
 
     LaunchedEffect(voiceSearchRequested) {
         if (voiceSearchRequested) {
@@ -272,7 +272,24 @@ fun SearchScreen(
 
                         Row {
                             if (query.text.isEmpty()) {
-                                IconButton(onClick = launchVoiceSearch) {
+                                IconButton(
+                                    onClick = {
+                                        // Navigate to Home first, then to SearchScreen with voiceSearch=true
+                                        navController.navigate("home") {
+                                            popUpTo(navController.graph.startDestinationId) {
+                                                saveState = true
+                                            }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
+                                        coroutineScope.launch {
+                                            kotlinx.coroutines.delay(300)
+                                            navController.navigate("search_input?voiceSearch=true") {
+                                                launchSingleTop = true
+                                            }
+                                        }
+                                    }
+                                ) {
                                     Icon(
                                         painter = painterResource(R.drawable.mic),
                                         contentDescription = null,

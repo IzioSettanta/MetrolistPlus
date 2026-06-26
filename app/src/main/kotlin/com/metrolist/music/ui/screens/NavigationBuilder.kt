@@ -99,6 +99,15 @@ fun NavGraphBuilder.navigationBuilder(
             remember(pureBlackEnabled, useDarkTheme) {
                 pureBlackEnabled && useDarkTheme
             }
+        
+        // Extract voiceSearch argument and set it in savedStateHandle
+        val voiceSearch = backStackEntry.arguments?.getBoolean("voiceSearch") ?: false
+        remember(voiceSearch) {
+            if (voiceSearch) {
+                backStackEntry.savedStateHandle["voiceSearch"] = true
+            }
+        }
+        
         SearchScreen(
             pureBlack = pureBlack,
             savedStateHandle = backStackEntry.savedStateHandle,

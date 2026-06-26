@@ -36,7 +36,9 @@ sealed class Screens(
         iconIdInactive = R.drawable.mic,
         iconIdActive = R.drawable.mic,
         route = "search_input?voiceSearch=true"
-    )
+    ) {
+        fun route(): String = "search_input?voiceSearch=true"
+    }
 
     object ListenTogether : Screens(
         titleId = R.string.together,
