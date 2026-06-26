@@ -6,6 +6,10 @@
 package com.metrolist.music.ui.screens.search
 
 import android.app.Activity
+import android.content.Intent
+import android.speech.RecognizerIntent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.asPaddingValues
@@ -72,6 +76,7 @@ import com.metrolist.music.utils.rememberEnumPreference
 import com.metrolist.music.utils.rememberPreference
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -174,6 +179,33 @@ fun SearchScreen(
         }
     }
 
+    val voiceSearchLauncher =
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.StartActivityForResult(),
+        ) { result ->
+            if (result.resultCode == Activity.RESULT_OK) {
+                val results = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+                if (!results.isNullOrEmpty()) {
+                    val recognizedText = results[0]
+                    query = TextFieldValue(recognizedText, TextRange(recognizedText.length))
+                    handleSearch(recognizedText)
+                }
+            }
+        }
+
+    val launchVoiceSearch = {
+        val intent =
+            Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+            }
+        try {
+            voiceSearchLauncher.launch(intent)
+        } catch (e: Exception) {
+            // Speech recognition not available
+        }
+    }
+
     val onSearch: (String) -> Unit = { searchQuery -> handleSearch(searchQuery) }
 
     val onSearchFromSuggestion: (String) -> Unit = { searchQuery -> handleSearch(searchQuery) }
@@ -231,12 +263,7 @@ fun SearchScreen(
 
                         Row {
                             if (query.text.isEmpty()) {
-                                IconButton(onClick = {
-                                    navController.navigate("home") {
-                                        popUpTo("search") { inclusive = true }
-                                    }
-                                    navController.navigate("recognition?autoStart=true")
-                                }) {
+                                IconButton(onClick = launchVoiceSearch) {
                                     Icon(
                                         painter = painterResource(R.drawable.mic),
                                         contentDescription = null,
