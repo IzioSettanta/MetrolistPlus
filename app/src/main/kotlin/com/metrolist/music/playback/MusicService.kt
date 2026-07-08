@@ -1186,16 +1186,16 @@ class MusicService :
             dataStore.data
                 .map { prefs ->
                     buildSet {
-                        if (prefs[StreamSourceWebRemixKey] == false) add("WEB_REMIX")
-                        if (prefs[StreamSourceTVHTML5Key] == false) add("TVHTML5")
-                        if (prefs[StreamSourceAndroidVRKey] == false) add("ANDROID_VR")
-                        // The IOS toggle covers both the iOS and iPadOS clients (they share clientName
-                        // "IOS"); ANDROID_CREATOR needs DroidGuard — these default OFF (`!= true`: unset
-                        // or false both disable; only an explicit toggle enables them).
-                        if (prefs[StreamSourceIOSKey] != true) add("IOS")
-                        if (prefs[StreamSourceVisionOSKey] == false) add("VISIONOS")
-                        if (prefs[StreamSourceWebCreatorKey] == false) add("WEB_CREATOR")
-                        if (prefs[StreamSourceAndroidCreatorKey] != true) add("ANDROID_CREATOR")
+                        // Stream sources default to ENABLED (true), except IOS and ANDROID_CREATOR
+                        // which default to DISABLED (require special auth).
+                        if ((prefs[StreamSourceWebRemixKey] ?: true) == false) add("WEB_REMIX")
+                        if ((prefs[StreamSourceTVHTML5Key] ?: true) == false) add("TVHTML5")
+                        if ((prefs[StreamSourceAndroidVRKey] ?: true) == false) add("ANDROID_VR")
+                        if ((prefs[StreamSourceVisionOSKey] ?: true) == false) add("VISIONOS")
+                        if ((prefs[StreamSourceWebCreatorKey] ?: true) == false) add("WEB_CREATOR")
+                        // IOS and ANDROID_CREATOR default to DISABLED (false)
+                        if ((prefs[StreamSourceIOSKey] ?: false) != true) add("IOS")
+                        if ((prefs[StreamSourceAndroidCreatorKey] ?: false) != true) add("ANDROID_CREATOR")
                     }
                 }
                 .distinctUntilChanged()
